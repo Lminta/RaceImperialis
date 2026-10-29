@@ -41,6 +41,16 @@
         <small>Changing difficulty restarts the race.</small>
     </div>
     <button type="button" class="race-restart" disabled="@_loading" @onclick="RestartRaceAsync">Restart race</button>
+    <div class="graphics-settings">
+        <strong>Graphics</strong>
+        <label for="column-interlace">Column rendering</label>
+        <select id="column-interlace" @bind="Settings.ColumnInterlaceFactor" disabled="@_loading">
+            <option value="1">Every column</option>
+            <option value="2">Every 2nd column</option>
+            <option value="3">Every 3rd column</option>
+        </select>
+        <small>Skipped columns keep their previous frame. Fast turns may show trails.</small>
+    </div>
 </aside>
 
 <aside class="controls-hint" aria-label="Driving controls">

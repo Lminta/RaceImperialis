@@ -1,8 +1,9 @@
 {
   "width": 1920,
   "height": 1080,
-  "targetFPS": 60,
+  "targetFPS": 120,
   "maxAnisotropy": 4,
+  "columnInterlaceFactor": 1,
   "fovDegrees": 90,
   "renderDistance": 60,
   "fogStartDistance": 35

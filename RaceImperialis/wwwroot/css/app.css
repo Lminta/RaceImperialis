@@ -94,6 +94,18 @@ canvas {
 .difficulty-options { display: flex; gap: 8px; margin: 6px 0; }
 .race-difficulty small { color: #b7c7d4; }
 .race-restart { width: 100%; margin-top: 10px; }
+.graphics-settings { display: grid; gap: 6px; margin-top: 14px; }
+.graphics-settings select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #657a8c;
+    border-radius: 4px;
+    background: #23313d;
+    color: inherit;
+    font: inherit;
+}
+.graphics-settings select:focus-visible { outline: 2px solid #45bfff; outline-offset: 2px; }
+.graphics-settings small { color: #b7c7d4; }
 .controls-hint {
     position: fixed;
     bottom: 16px;
