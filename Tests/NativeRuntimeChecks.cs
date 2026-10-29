@@ -38,11 +38,55 @@ internal static class NativeRuntimeChecks
         Check(renderer.Bitmap.GetPixel(27, 12).Alpha == 0, "Native UI ignored clipping.");
         Check(renderer.MeasureWidth("WWW", new(Size: 20)) > renderer.MeasureWidth("iii", new(Size: 20)), "Native UI uses approximate font metrics.");
 
+        using (var cached = new SdlUiRenderer(new ImageAssets()))
+        {
+            var node = new UiRenderNode { Id = "image", Kind = "image", Width = 4, Height = 4,
+                Transform = UiMatrix.Identity, Source = "split" };
+            void Draw(UiRenderNode image) => cached.Render(new(1, 20, 20, [image], null, null));
+            Draw(node);
+            Check(cached.Bitmap.GetPixel(0, 0).Red == 255 && cached.Bitmap.GetPixel(3, 0).Green == 255,
+                "Scaled UI image lost its source colors.");
+            Draw(node with { Transform = UiMatrix.From(Matrix3x2.CreateRotation(MathF.PI / 2) * Matrix3x2.CreateTranslation(8, 0)), Opacity = .5f });
+            Check(cached.Bitmap.GetPixel(7, 0) is { Red: 255, Alpha: >= 127 and <= 128 } && cached.Bitmap.GetPixel(0, 0).Alpha == 0,
+                "Cached UI image ignored live rotation, translation, or opacity.");
+            Draw(node with { SourceRect = new(.5f, 0, .5f, 1), Width = 2 });
+            Check(cached.Bitmap.GetPixel(0, 0).Green == 255 && cached.Bitmap.GetPixel(2, 0).Alpha == 0,
+                "Scaled UI image cache retained a stale crop or size.");
+            Draw(node with { Source = "blue" });
+            Check(cached.Bitmap.GetPixel(0, 0).Blue == 255, "Scaled UI image cache retained a stale source.");
+            Draw(node with { Width = 12, Height = 12 });
+            Check(cached.Bitmap.GetPixel(11, 11).Green == 255, "Upscaled UI image cache lost its bounds.");
+            cached.Render(new(1, 20, 20, [], null, null));
+            Check(cached.Bitmap.GetPixel(0, 0).Alpha == 0, "Hidden cockpit left stale pixels.");
+            Draw(node);
+            Check(cached.Bitmap.GetPixel(0, 0).Red == 255, "UI image failed after hiding and showing it.");
+        }
+
         var shaders = Path.Combine(root, "Engine", "WolfSlop.Engine.Sdl", "Shaders");
         var manifest = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(Path.Combine(shaders, "Compiled", "sources.json")))!;
         foreach (var (file, hash) in manifest)
             Check(Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(File.ReadAllText(Path.Combine(shaders, file)).Replace("\r\n", "\n")))) == hash,
                 $"Shader '{file}' changed without regenerating native binaries.");
         return count;
+    }
+
+    private sealed class ImageAssets : IAssetSource
+    {
+        public Stream Open(string path)
+        {
+            using var bitmap = new SKBitmap(8, 8);
+            using (var canvas = new SKCanvas(bitmap))
+            {
+                canvas.Clear(path == "blue" ? SKColors.Blue : SKColors.Red);
+                if (path == "split")
+                {
+                    using var paint = new SKPaint { Color = SKColors.Lime };
+                    canvas.DrawRect(4, 0, 4, 8, paint);
+                }
+            }
+            using var image = SKImage.FromBitmap(bitmap);
+            using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+            return new MemoryStream(encoded.ToArray());
+        }
     }
 }
