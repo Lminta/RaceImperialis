@@ -1,8 +1,8 @@
 # Race Imperialis
 
-A native .NET 10 racing game using SDL3 and SDL GPU. Race two opponents through Pine Loop with cockpit/chase cameras, lap timing, ordered checkpoints, difficulty settings, music, spatial sound, and a retained UI HUD.
+A Windows .NET 10 racing game using SDL3 and SDL GPU. Race two opponents through Pine Loop with cockpit/chase cameras, lap timing, ordered checkpoints, difficulty settings, music, spatial sound, and a retained UI HUD.
 
-## Run on Windows or Linux
+## Run on Windows
 
 ```sh
 git clone --recurse-submodules https://github.com/Lminta/RaceImperialis.git
@@ -10,7 +10,7 @@ cd RaceImperialis
 dotnet run --project RaceImperialis/RaceImperialis.csproj
 ```
 
-The native provider selects D3D12 or Vulkan. A compatible GPU and driver are required. On Linux, install your distribution's Vulkan loader/driver and the desktop/audio libraries needed by SDL. The packaged Linux native libraries require glibc 2.28 or newer.
+The Windows build uses SDL3 and selects D3D12 or Vulkan. A compatible GPU and driver and the .NET 10 SDK are required. The default runtime target is `win-x64`.
 
 Click the game to start or resume. W accelerates; S brakes then reverses; A/D or arrows steer; Space brakes; V changes camera; mouse movement orbits the chase camera. Esc pauses and releases the mouse. R restarts; F1 opens graphics settings. Menus also support Tab and Enter.
 
@@ -18,33 +18,18 @@ The graphics menu provides resolution presets, FPS cap, filtering, field of view
 
 Column modes 2 and 3 update alternating columns in a persistent world target. Compute rays and expensive world shading skip other columns; the HUD is composited every frame. Fast motion can show trails. The native implementation uses a full-size retained target; performance depends on the GPU and UI workload.
 
-## Publish desktop builds
+## Publish the Windows build
 
 ```sh
 dotnet publish RaceImperialis/RaceImperialis.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish/win-x64
-dotnet publish RaceImperialis/RaceImperialis.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/linux-x64
 ```
 
 Distribute the complete output directory, including `Content` and native libraries.
 
-## Android
-
-```sh
-dotnet workload install android
-dotnet build RaceImperialis.Android/RaceImperialis.Android.csproj
-```
-
-Android also needs the Android SDK and JDK. The separate project creates an APK; it stays outside the desktop solution so desktop builds do not require mobile tooling. The activity uses landscape orientation and extracts bundled content into private app storage for native streaming audio. No network permission is needed.
-
-Tap to start/resume. The lower screen is split into left steering, right steering, brake/reverse, and acceleration regions. Tap the upper-left region to change camera and upper-right to open the menu. Backgrounding releases controls and pauses the race. Android uses Vulkan with optional SDL GPU features disabled and filtering limited to 1× for wider driver compatibility. A Vulkan-capable device is required; minimum Android version alone does not guarantee compatible graphics.
-
-Windows D3D12 and Vulkan have been exercised locally. Linux publishing and Android APK building are checked; Linux runtime and Android device behavior still need testing. The SDL Android package currently produces duplicate `libSDL3.so` packaging warnings; the SDK retains one copy per ABI.
-
 ## Projects
 
-- `RaceImperialis/`: desktop entry point, game source, and `Content/` assets.
-- `RaceImperialis/Core/`: shared game library used by desktop, Android, and tests.
-- `RaceImperialis.Android/`: Android activity and packaging.
+- `RaceImperialis/`: Windows entry point, game source, and `Content/` assets.
+- `RaceImperialis/Core/`: game library used by the Windows application and tests.
 - `Engine/`: WolfSlop submodule with a portable core and native SDL provider.
 - `Tests/`: game, asset, preferences, native UI, and shader-consistency checks.
 
@@ -69,4 +54,4 @@ After modifying HLSL, rebuild both shader formats:
 dotnet run --project Engine/Tools/ShaderCompiler/ShaderCompiler.csproj
 ```
 
-Commit the updated sources, binaries, and source hash manifest together. The shader compiler tool requires desktop SDL_shadercross binaries supplied by its NuGet packages.
+Commit the updated sources, binaries, and source hash manifest together. The shader compiler tool requires Windows SDL_shadercross binaries supplied by its NuGet packages.

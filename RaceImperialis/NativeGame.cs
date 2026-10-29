@@ -9,12 +9,11 @@ using WolfSlop.Engine.Sdl.UI;
 
 public static class NativeGame
 {
-    public static int Run(string[] args, string? contentRoot = null, string? preferencesRoot = null)
+    public static int Run(string[] args)
     {
         try
         {
             GpuDevice.Check(SDL.Init(SDL.InitFlags.Video | SDL.InitFlags.Audio | SDL.InitFlags.Gamepad));
-            SDL.SetHint("SDL_TOUCH_MOUSE_EVENTS", "0");
             try
             {
                 var displays = SDL.GetDisplays(out _) ?? throw new InvalidOperationException(SDL.GetError());
@@ -33,12 +32,11 @@ public static class NativeGame
                         throw new ArgumentException($"--display must be between 1 and {displays.Length}.");
                     selectedDisplay = displays[number - 1];
                 }
-                var assets = new DirectoryAssetSource(contentRoot ?? Path.Combine(AppContext.BaseDirectory, "Content"));
+                var assets = new DirectoryAssetSource(Path.Combine(AppContext.BaseDirectory, "Content"));
                 var settings = assets.ReadJsonAsync<RendererSettings>("graphics-settings.json").GetAwaiter().GetResult(); settings.Validate();
                 var gameplay = assets.ReadJsonAsync<GameplaySettings>("gameplay-settings.json").GetAwaiter().GetResult(); gameplay.Validate();
                 var sound = assets.ReadJsonAsync<SoundSettings>("audio-settings.json").GetAwaiter().GetResult(); sound.Validate();
-                var preferences = new GraphicsPreferences(settings, Path.Combine(preferencesRoot ??
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RaceImperialis"), "graphics.json"));
+                var preferences = new GraphicsPreferences(settings, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RaceImperialis", "graphics.json"));
                 if (!smoke) preferences.LoadAsync().GetAwaiter().GetResult();
                 var window = GpuDevice.Require(SDL.CreateWindow("Race Imperialis — Pine Loop", 1280, 720,
                     SDL.WindowFlags.Resizable | SDL.WindowFlags.HighPixelDensity | SDL.WindowFlags.Hidden |
@@ -46,10 +44,10 @@ public static class NativeGame
                 try
                 {
                     var centered = unchecked((int)SDL.WindowPosCenteredDisplay((int)selectedDisplay));
-                    if (!OperatingSystem.IsAndroid()) GpuDevice.Check(SDL.SetWindowPosition(window, centered, centered));
+                    GpuDevice.Check(SDL.SetWindowPosition(window, centered, centered));
                     GpuDevice.Check(SDL.ShowWindow(window));
-                    if (!OperatingSystem.IsAndroid()) GpuDevice.Check(SDL.SyncWindow(window));
-                    if (!OperatingSystem.IsAndroid() && SDL.GetDisplayForWindow(window) != selectedDisplay)
+                    GpuDevice.Check(SDL.SyncWindow(window));
+                    if (SDL.GetDisplayForWindow(window) != selectedDisplay)
                         throw new InvalidOperationException("The window manager did not place the game on the selected display.");
                     Console.WriteLine($"[DISPLAY] Running on display {Array.IndexOf(displays, selectedDisplay) + 1}: {SDL.GetDisplayName(selectedDisplay)}");
                     using var gpu = new GpuDevice(window, args.Contains("--gpu-debug"), args.FirstOrDefault(a => a.StartsWith("--gpu="))?[6..]);
@@ -71,7 +69,6 @@ public static class NativeGame
                         var viewport = new Vector2(Math.Max(1, logicalWidth), Math.Max(1, logicalHeight));
                         while (SDL.PollEvent(out var e))
                         {
-                            if (e.Type == (uint)SDL.EventType.WillEnterBackground) input.Release();
                             if (e.Type is (uint)SDL.EventType.Quit or (uint)SDL.EventType.WindowCloseRequested) quit = true;
                             if (smoke) continue;
                             if (e.Type == (uint)SDL.EventType.KeyDown && !e.Key.Repeat)
@@ -82,19 +79,6 @@ public static class NativeGame
                                 if (!input.Captured) game.Document.Input.KeyDown(e.Key.Scancode switch { SDL.Scancode.Tab => "Tab", SDL.Scancode.Return => "Enter", SDL.Scancode.Space => " ", _ => "" });
                             }
                             Vector2 Pointer(float x, float y) => new(x, y);
-                            if (e.Type is (uint)SDL.EventType.FingerDown or (uint)SDL.EventType.FingerMotion or (uint)SDL.EventType.FingerUp)
-                            {
-                                var touch = e.TFinger;
-                                var point = new Vector2(touch.X, touch.Y) * viewport;
-                                if (game.MenuOpen || !input.Captured)
-                                {
-                                    if (e.Type == (uint)SDL.EventType.FingerDown && !game.Document.Input.PointerDown(point, (int)touch.FingerID) && !game.MenuOpen) input.Capture();
-                                    if (e.Type == (uint)SDL.EventType.FingerMotion) game.Document.Input.PointerMove(point, (int)touch.FingerID);
-                                    if (e.Type == (uint)SDL.EventType.FingerUp) game.Document.Input.PointerUp(point, (int)touch.FingerID);
-                                }
-                                else if (e.Type == (uint)SDL.EventType.FingerDown && touch.X > .8f && touch.Y < .35f) game.ToggleMenu();
-                                input.Touch(touch, e.Type == (uint)SDL.EventType.FingerUp);
-                            }
                             if (!input.Captured && e.Type == (uint)SDL.EventType.MouseButtonDown)
                             {
                                 if (!game.Document.Input.PointerDown(Pointer(e.Button.X, e.Button.Y)) && !game.MenuOpen) input.Capture();

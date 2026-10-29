@@ -26,13 +26,6 @@ public sealed class NativeMenu
         Button(options, "Restart race (R)", () => restart(difficulty())); Button(options, "Graphics (F1)", Open);
         document.Root.Add(new UiText { Text = "W accelerate · S reverse · A/D steer · Space brake\nV camera · Mouse look · Esc pause · Click to drive",
             Font = new(Size: 12), Style = new() { Anchor = new(1, 1), Pivot = new(1, 1), Position = new(-12, -12), Padding = new(8), Background = "#111923cc", ZIndex = 10 } });
-        if (OperatingSystem.IsAndroid())
-        {
-            var controls = document.Root.Add(new UiPanel { Style = new() { Anchor = new(0, 1), Pivot = new(0, 1), Width = UiLength.Percent(1), Height = 80, Layout = UiLayoutMode.Row, Background = "#11192399", ZIndex = 15 } });
-            foreach (var label in new[] { "◀ LEFT", "RIGHT ▶", "BRAKE / REVERSE", "ACCELERATE" })
-                controls.Add(new UiText { Text = label, TextAlignment = UiAlignment.Center, Font = new(Size: 16, Weight: 700),
-                    Style = new() { Width = UiLength.Percent(.25f), Padding = new(8, 24) } });
-        }
         _mask = document.Root.Add(new UiPanel("graphics-mask") { Visible = false, BlocksInput = true,
             Style = UiStyle.Fill with { Background = "#071019cc", ZIndex = 200 } });
         var panel = _mask.Add(new UiPanel("graphics-panel") { Style = new() { Anchor = new(.5f), Pivot = new(.5f), Width = 520,
@@ -68,8 +61,7 @@ public sealed class NativeMenu
             _draft.SelectResolution(presets[(index + 1) % presets.Count].Value);
         });
         Cycle("FPS limit", () => _draft.TargetFPS.ToString(), () => { int[] values = [30, 60, 90, 120, 144, 165, 240, 360]; _draft.TargetFPS = values[(Array.IndexOf(values, _draft.TargetFPS) + 1) % values.Length]; });
-        if (!OperatingSystem.IsAndroid())
-            Cycle("Anisotropy", () => _draft.MaxAnisotropy + "×", () => _draft.MaxAnisotropy = (ushort)(_draft.MaxAnisotropy >= 16 ? 1 : _draft.MaxAnisotropy * 2));
+        Cycle("Anisotropy", () => _draft.MaxAnisotropy + "×", () => _draft.MaxAnisotropy = (ushort)(_draft.MaxAnisotropy >= 16 ? 1 : _draft.MaxAnisotropy * 2));
         Cycle("Columns", () => "Every " + _draft.ColumnInterlaceFactor, () => _draft.ColumnInterlaceFactor = _draft.ColumnInterlaceFactor % 3 + 1);
         Cycle("Field of view", () => _draft.FovDegrees + "°", () => _draft.FovDegrees = _draft.FovDegrees >= 120 ? 50 : _draft.FovDegrees + 5);
         Cycle("Render distance", () => _draft.RenderDistance.ToString(), () => {

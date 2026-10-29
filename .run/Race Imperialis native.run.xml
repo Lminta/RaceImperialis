@@ -2,7 +2,7 @@
   <configuration default="false" name="Race Imperialis: native" type="DotNetProject" factoryName=".NET Project">
     <option name="PROJECT_PATH" value="$PROJECT_DIR$/RaceImperialis/RaceImperialis.csproj" />
     <option name="PROJECT_KIND" value="DotNetCore" />
-    <option name="PROJECT_TFM" value="net10.0" />
+    <option name="PROJECT_TFM" value="net10.0-windows" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
     <option name="PASS_PARENT_ENVS" value="1" />
     <method v="2"><option name="Build" /></method>
