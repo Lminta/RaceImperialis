@@ -20,11 +20,9 @@ dotnet build RaceImperialis.slnx
 dotnet run --project RaceImperialis/RaceImperialis.csproj
 ```
 
-Open **https://localhost:7280**, or open `RaceImperialis.slnx` in Rider and select
-**Race Imperialis: https**. The launch profile uses HTTPS only.
-
-If the local development certificate is not trusted, run
-`dotnet dev-certs https --trust`.
+Open **http://localhost:5280**, or open `RaceImperialis.slnx` in Rider and select
+**Race Imperialis: http**. The local launch profile requires no certificate.
+Browsers allow WebGPU on localhost HTTP; access from another device requires HTTPS.
 
 For an existing checkout, initialize the engine before building:
 
@@ -97,11 +95,11 @@ For the full browser check, start the game and a Chromium browser with remote
 debugging enabled, then run with Node 22 or newer:
 
 ```powershell
-node Tests/car-driving-browser-check.mjs 9273 https://localhost:7280
-node Tests/column-interlacing-browser-check.mjs 9273 https://localhost:7280
-node Tests/column-rendering-performance.mjs 9273 https://localhost:7280
-node Tests/graphics-menu-browser-check.mjs 9273 https://localhost:7280
-node Tests/game-performance-browser-check.mjs 9273 https://localhost:7280 current
+node Tests/car-driving-browser-check.mjs 9273 http://localhost:5280
+node Tests/column-interlacing-browser-check.mjs 9273 http://localhost:5280
+node Tests/column-rendering-performance.mjs 9273 http://localhost:5280
+node Tests/graphics-menu-browser-check.mjs 9273 http://localhost:5280
+node Tests/game-performance-browser-check.mjs 9273 http://localhost:5280 current
 ```
 
 This checks direct startup, difficulty, countdown, cockpit/chase cameras,
@@ -118,5 +116,5 @@ steering, and chase views and saves CPU/GPU timings under `artifacts/game-perfor
 Open the game with `?profile=1` for per-stage simulation, audio, world, and HUD timings
 in the browser console. Pixel reduction cannot remove CPU-side frame costs.
 Headless Edge needs `--enable-unsafe-webgpu` and
-`--autoplay-policy=no-user-gesture-required`; trust the HTTPS development certificate
-before testing or use `--ignore-certificate-errors` only for the test browser.
+`--autoplay-policy=no-user-gesture-required`. The default localhost HTTP URL
+requires no certificate flags.

@@ -5,7 +5,7 @@ import {uiInspectionSource} from './ui-browser-helpers.mjs';
 import {graphicsPreferenceFixture} from './browser-check-session.mjs';
 
 const port = process.argv[2] ?? '9273';
-const base = process.argv[3] ?? 'https://localhost:7280';
+const base = process.argv[3] ?? 'http://localhost:5280';
 const target = await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, {method: 'PUT'})).json();
 const socket = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });

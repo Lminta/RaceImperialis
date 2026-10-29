@@ -6,7 +6,7 @@ import {uiInspectionSource} from './ui-browser-helpers.mjs';
 
 const check = await createBrowserCheck(process.argv[2] ?? '9273');
 const {send, evaluate, waitFor, errors} = check;
-const base = process.argv[3] ?? 'https://localhost:7280';
+const base = process.argv[3] ?? 'http://localhost:5280';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function open() {
     await evaluate(`document.querySelector('.graphics-open').focus(); document.querySelector('.graphics-open').click()`);

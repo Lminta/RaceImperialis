@@ -1,11 +1,11 @@
-// node Tests/car-driving-browser-check.mjs 9260 https://localhost:7280
+// node Tests/car-driving-browser-check.mjs 9260 http://localhost:5280
 import assert from 'node:assert/strict';
 import {uiInspectionSource} from './ui-browser-helpers.mjs';
 import fs from 'node:fs';
 import {graphicsPreferenceFixture} from './browser-check-session.mjs';
 
 const port = process.argv[2] ?? '9260';
-const base = process.argv[3] ?? 'https://localhost:7280';
+const base = process.argv[3] ?? 'http://localhost:5280';
 const racePath = '/';
 const project = 'RaceImperialis';
 const carDefinition = JSON.parse(fs.readFileSync(`${project}/wwwroot/objects/sprites/sprite-directional-car.json`, 'utf8'));

@@ -6,7 +6,7 @@ import {createBrowserCheck, graphicsPreferenceFixture} from './browser-check-ses
 
 const check = await createBrowserCheck(process.argv[2] ?? '9273');
 const {send, evaluate, waitFor, logs, errors} = check;
-const base = process.argv[3] ?? 'https://localhost:7280', label = process.argv[4] ?? 'current';
+const base = process.argv[3] ?? 'http://localhost:5280', label = process.argv[4] ?? 'current';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const percentile = (values, p) => values.toSorted((a, b) => a - b)[Math.floor((values.length - 1) * p)];
 async function key(code, down = true) {
