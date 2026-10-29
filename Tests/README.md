@@ -7,6 +7,8 @@ engine submodule. Only keyboard and mouse input are substituted.
 `RacingProjectChecks` covers asset ownership, both difficulty profiles, starting
 grid/countdown locking, driving, pause/resume, clean restart state, and finishing
 after the configured ordered laps.
+`GraphicsOptionsChecks` covers validated updates, saved preferences, default snapshots,
+and fallback when saved data or browser storage is unavailable.
 
 `car-driving-browser-check.mjs` uses real browser input and the retained UI display
 list to check direct startup, rendering, difficulty changes, countdown, driving,
@@ -30,3 +32,8 @@ barriers; CPU timing includes the simulation and UI. It runs the three modes in
 both orders, overrides the FPS cap for the test, and saves results under
 `artifacts/column-rendering/performance.json`. Browser compositing is outside the
 GPU timing. Run browser scripts sequentially, since they change browser focus.
+
+`graphics-menu-browser-check.mjs` exercises the right-panel button, keyboard focus,
+pausing, all eight settings, live resolution/FOV/filtering/FPS updates, retained race
+progress and scene textures, validation, cancel/Escape, saved preferences, reset,
+and the narrow layout. Browser checks restore the previous saved graphics preferences.

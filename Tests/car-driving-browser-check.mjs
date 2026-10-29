@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {uiInspectionSource} from './ui-browser-helpers.mjs';
 import fs from 'node:fs';
+import {graphicsPreferenceFixture} from './browser-check-session.mjs';
 
 const port = process.argv[2] ?? '9260';
 const base = process.argv[3] ?? 'https://localhost:7280';
@@ -107,6 +108,7 @@ try {
     await send('Network.enable');
     await send('Emulation.setDeviceMetricsOverride', {width: 1280, height: 850, deviceScaleFactor: 1, mobile: false});
     await send('Page.addScriptToEvaluateOnNewDocument', {source: `
+        ${graphicsPreferenceFixture()}
         ${uiInspectionSource}
         window.__camera = null; window.__avatar = null; window.__opponent = null; window.__greenOpponent = null; window.__carLayers = {}; window.__mapInfo = null;
         window.__lightLayers = [];
@@ -430,6 +432,7 @@ try {
     assert.deepEqual(errors, []);
     console.log('PASS finish: configured lap limit and counter, frozen race and released mouse, individual results, keyboard focus and clean restart.');
 } finally {
+    await evaluate('window.__restoreGraphicsPreferences?.()').catch(() => {});
     await send('Page.close').catch(() => {});
     socket.close();
     for (const task of pending.values()) clearTimeout(task.timer);

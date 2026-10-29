@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using SpawnDev.BlazorJS.JSObjects;
 using WolfNET.Engine.Input;
 using WolfNET.Engine.World;
@@ -18,7 +19,11 @@ public partial class Home
     private Wolf Wolf => _services!.ServiceProvider.GetRequiredService<Wolf>();
     private WebGpuRenderer Renderer => _services!.ServiceProvider.GetRequiredService<WebGpuRenderer>();
 
-    protected override void OnInitialized() => _services = ScopeFactory.CreateScope();
+    protected override void OnInitialized()
+    {
+        _services = ScopeFactory.CreateScope();
+        _graphicsDraft = GraphicsOptions.From(Settings);
+    }
     private ElementReference _canvas;
     private HTMLCanvasElement? _canvasElement;
     private readonly CancellationTokenSource _lifetime = new();
@@ -29,6 +34,55 @@ public partial class Home
     private string? _error;
     private MouseTracker? _observedMouse;
     private long _lastLoadingProgress;
+    private ElementReference _graphicsDialog;
+    private IJSObjectReference? _graphicsMenuModule;
+    private GraphicsOptions _graphicsDraft = null!;
+    private bool _showGraphicsOnRender;
+    private bool _applyingGraphics;
+    private string? _graphicsError;
+
+    private void OpenGraphicsMenu()
+    {
+        if (_loading || _disposed) return;
+        Wolf.PauseForMenu();
+        _graphicsDraft = GraphicsOptions.From(Settings);
+        _graphicsError = null;
+        _showGraphicsOnRender = true;
+    }
+
+    private async Task CloseGraphicsMenuAsync()
+    {
+        if (_graphicsMenuModule != null) await _graphicsMenuModule.InvokeVoidAsync("close", _graphicsDialog);
+    }
+
+    private void ResetGraphicsDefaults()
+    {
+        _graphicsDraft = GraphicsPreferences.Defaults;
+        _graphicsError = null;
+    }
+
+    private async Task ApplyGraphicsSettingsAsync()
+    {
+        if (_applyingGraphics || _canvasElement == null || _disposed) return;
+        _applyingGraphics = true;
+        _graphicsError = null;
+        try
+        {
+            Wolf.ApplyGraphicsSettings(_graphicsDraft.ToRendererSettings(Settings), _canvasElement);
+            try { await GraphicsPreferences.SaveAsync(); }
+            catch (Microsoft.JSInterop.JSException)
+            {
+                _graphicsError = "Settings applied, but this browser could not save them for next time.";
+                return;
+            }
+            await CloseGraphicsMenuAsync();
+        }
+        catch (Exception ex)
+        {
+            _graphicsError = $"Could not apply graphics settings: {ex.Message}";
+        }
+        finally { _applyingGraphics = false; }
+    }
 
     private async Task ShowLoadingProgressAsync(string message)
     {
@@ -58,6 +112,12 @@ public partial class Home
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_showGraphicsOnRender)
+        {
+            _showGraphicsOnRender = false;
+            _graphicsMenuModule ??= await UiRuntime.InvokeAsync<IJSObjectReference>("import", "./graphics-menu.js");
+            await _graphicsMenuModule.InvokeVoidAsync("open", _graphicsDialog);
+        }
         if (!firstRender)
             return;
 
@@ -133,7 +193,7 @@ public partial class Home
         });
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         _disposed = true;
         Wolf.MapSwitchRequested -= OnMapSwitchRequested;
@@ -143,6 +203,7 @@ public partial class Home
         _canvasElement?.Dispose();
         _services?.Dispose();
         _lifetime.Dispose();
+        if (_graphicsMenuModule != null) await _graphicsMenuModule.DisposeAsync();
         Console.WriteLine("[APP] Disposing");
     }
 }

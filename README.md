@@ -50,8 +50,13 @@ opponents, timers, and countdown while retaining the selected difficulty.
 
 ## Graphics
 
-The **Graphics → Column rendering** selector applies immediately without restarting
-the race. **Every column** is the default. **Every 2nd column** and **Every 3rd column**
+Click **Graphics settings** on the right panel to open the game menu. It includes
+resolution, frame-rate limit, anisotropic filtering, field of view, column rendering,
+render distance, and fog start distance. Opening the menu pauses driving. **Apply**
+updates the current race and saves preferences in this browser; **Cancel** or **Esc**
+discards pending edits. Click the game to resume driving after closing the menu.
+
+**Every column** is the default. **Every 2nd column** and **Every 3rd column**
 rotate through vertical columns each frame, retaining the other columns from
 previous frames. The world is shaded into a compact half-width or third-width
 target, then combined with the retained columns. This reduces actual fragment work;
@@ -59,8 +64,9 @@ fast motion can show interlacing trails. Screen overlays and the HUD update ever
 Loading a race or changing modes first refreshes the entire scene.
 FPS remains limited by the display, `targetFPS`, and CPU simulation/UI work.
 
-Set `columnInterlaceFactor` to `1`, `2`, or `3` in
-`RaceImperialis/wwwroot/graphics-settings.json` to choose the startup mode.
+`RaceImperialis/wwwroot/graphics-settings.json` supplies defaults, including
+`columnInterlaceFactor` (`1`, `2`, or `3`). Saved browser preferences take precedence.
+**Reset defaults** restores the file's values in the menu; choose **Apply** to save them.
 
 ## Repository
 
@@ -92,6 +98,7 @@ debugging enabled, then run with Node 22 or newer:
 node Tests/car-driving-browser-check.mjs 9273 https://localhost:7280
 node Tests/column-interlacing-browser-check.mjs 9273 https://localhost:7280
 node Tests/column-rendering-performance.mjs 9273 https://localhost:7280
+node Tests/graphics-menu-browser-check.mjs 9273 https://localhost:7280
 ```
 
 This checks direct startup, difficulty, countdown, cockpit/chase cameras,

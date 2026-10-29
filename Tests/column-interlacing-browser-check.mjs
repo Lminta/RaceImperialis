@@ -2,6 +2,7 @@
 // node Tests/column-interlacing-browser-check.mjs 9273 http://127.0.0.1:5289
 import assert from 'node:assert/strict';
 import {uiInspectionSource} from './ui-browser-helpers.mjs';
+import {graphicsPreferenceFixture} from './browser-check-session.mjs';
 
 const port = process.argv[2] ?? '9273';
 const base = process.argv[3] ?? 'https://localhost:7280';
@@ -52,6 +53,7 @@ try {
     await send('Runtime.enable');
     await send('Page.enable');
     await send('Page.addScriptToEvaluateOnNewDocument', {source: `
+        ${graphicsPreferenceFixture()}
         ${uiInspectionSource}
         window.__frames = []; window.__samples = []; window.__sampleCount = 0;
         window.__frame = null; window.__motion = 0; window.__retained = null;
@@ -181,6 +183,7 @@ try {
             window.__samples = []; window.__sampleCount = ${factor === 1 ? 0 : 7}; window.__motion = 0;
             const select = document.querySelector('#column-interlace');
             select.value = '${factor}'; select.dispatchEvent(new Event('change', {bubbles: true}));
+            document.querySelector('#graphics-menu form').requestSubmit();
             return start;
         })()`);
         await waitFor(`window.__frames.length >= ${start + 9} && window.__sampleCount === 0 && window.__samples.every(s => s.pixels)`);
@@ -212,6 +215,7 @@ try {
     await evaluate(`(() => {
         const select = document.querySelector('#column-interlace');
         select.value = '3'; select.dispatchEvent(new Event('change', {bubbles: true}));
+        document.querySelector('#graphics-menu form').requestSubmit();
     })()`);
     await waitFor('window.__frames.at(-1).step === 3');
     const restart = await evaluate(`(() => {
@@ -224,6 +228,7 @@ try {
     assert.deepEqual(errors, []);
     console.log('PASS: full rendering, odd viewport width, startup JSON, live mode switches, and race restart priming.');
 } finally {
+    await evaluate('window.__restoreGraphicsPreferences?.()').catch(() => {});
     await send('Page.close').catch(() => {});
     socket.close();
     for (const task of pending.values()) clearTimeout(task.timer);

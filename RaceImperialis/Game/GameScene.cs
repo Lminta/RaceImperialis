@@ -19,7 +19,7 @@ public sealed class GameScene : IScene
     private readonly IMouseInput _mouse;
     private string? _requestedMap;
     private bool _disposed;
-    private readonly float _aspectRatio;
+    private float _aspectRatio;
     private readonly RaceSession? _race;
     private RenderMap? _greenSource;
     private RenderMap? _greenMap;
@@ -152,6 +152,14 @@ public sealed class GameScene : IScene
                     Map.GetImpactMaterial(impact.CellX, impact.CellY), impact.Speed));
             };
         }
+    }
+
+    public void ApplyGraphicsSettings(RendererSettings settings)
+    {
+        settings.Validate();
+        _aspectRatio = settings.AR;
+        var direction = Player.Transform.Rotation;
+        Player.Camera.Plane = new Vector2(direction.Y, -direction.X) * settings.CameraPlaneScale;
     }
 
     public SfxFrame CaptureAudioFrame(ExampleRenderFrame frame, bool active, float seconds)

@@ -94,9 +94,41 @@ canvas {
 .difficulty-options { display: flex; gap: 8px; margin: 6px 0; }
 .race-difficulty small { color: #b7c7d4; }
 .race-restart { width: 100%; margin-top: 10px; }
-.graphics-settings { display: grid; gap: 6px; margin-top: 14px; }
-.graphics-settings select {
+.graphics-open { width: 100%; margin-top: 8px; }
+.graphics-menu {
+    width: min(640px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    padding: 24px;
+    border: 1px solid #82919e;
+    border-radius: 12px;
+    background: #111923;
+    color: #e0e8ee;
+    font: 14px/1.45 system-ui, sans-serif;
+    box-shadow: 0 20px 80px #0009;
+}
+.graphics-menu::backdrop { background: #03070bbd; }
+.graphics-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.graphics-heading h1 { margin: 0; font-size: 24px; }
+.graphics-heading p { margin: 6px 0 18px; color: #adbeca; }
+.graphics-menu button {
+    padding: 8px 14px;
+    border: 1px solid #657a8c;
+    border-radius: 5px;
+    background: #23313d;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+.graphics-menu .graphics-close { padding: 0 9px; font-size: 24px; }
+.graphics-fields { min-width: 0; margin: 0 0 18px; padding: 14px; border: 1px solid #3c5265; border-radius: 6px; }
+.graphics-fields legend { padding: 0 6px; font-weight: 600; }
+.graphics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.graphics-field { display: flex; flex-direction: column; gap: 6px; }
+.graphics-field input,
+.graphics-field select {
     width: 100%;
+    min-width: 0;
     padding: 8px;
     border: 1px solid #657a8c;
     border-radius: 4px;
@@ -104,8 +136,20 @@ canvas {
     color: inherit;
     font: inherit;
 }
-.graphics-settings select:focus-visible { outline: 2px solid #45bfff; outline-offset: 2px; }
-.graphics-settings small { color: #b7c7d4; }
+.graphics-menu :is(input, select, button):focus-visible { outline: 2px solid #45bfff; outline-offset: 2px; }
+.graphics-field small, .graphics-save-hint { color: #adbeca; font-size: 12px; }
+.graphics-validation { color: #ffb4a6; }
+.graphics-validation ul { padding-left: 20px; }
+.graphics-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.graphics-actions span { flex: 1; }
+.graphics-menu .graphics-apply { background: #194a64; border-color: #45bfff; }
+.graphics-menu button:disabled { opacity: .65; cursor: default; }
+.graphics-save-hint { margin: 12px 0 0; }
+@media (max-width: 520px) {
+    .graphics-menu { padding: 16px; }
+    .graphics-grid { grid-template-columns: minmax(0, 1fr); }
+    .graphics-actions span { flex-basis: 100%; }
+}
 .controls-hint {
     position: fixed;
     bottom: 16px;

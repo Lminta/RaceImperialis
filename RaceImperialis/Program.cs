@@ -28,6 +28,7 @@ var graphicsSettings = await http.GetFromJsonAsync<RendererSettings>("graphics-s
 
 
 builder.Services.AddSingleton(graphicsSettings);
+builder.Services.AddSingleton<GraphicsPreferences>();
 graphicsSettings.Validate();
 var gameplaySettings = await http.GetFromJsonAsync<GameplaySettings>("gameplay-settings.json")
     ?? throw new InvalidDataException("Gameplay settings must contain a JSON object.");
@@ -44,4 +45,6 @@ builder.Services.AddScoped<Wolf>();
 
 Console.WriteLine("[C#] Starting BlazorJS runtime");
 
-await builder.Build().BlazorJSRunAsync();
+var host = builder.Build();
+await host.Services.GetRequiredService<GraphicsPreferences>().LoadAsync();
+await host.BlazorJSRunAsync();

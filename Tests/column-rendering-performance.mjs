@@ -2,6 +2,7 @@
 // Paused-scene comparison. FPS remains display-limited; CPU times include simulation/UI.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {graphicsPreferenceFixture} from './browser-check-session.mjs';
 
 const port = process.argv[2] ?? '9273', base = process.argv[3] ?? 'https://localhost:7280';
 const target = await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, {method: 'PUT'})).json();
@@ -51,6 +52,7 @@ const percentile = (values, p) => values.toSorted((a, b) => a - b)[Math.floor((v
 try {
     await send('Runtime.enable'); await send('Page.enable');
     await send('Page.addScriptToEvaluateOnNewDocument', {source: `
+        ${graphicsPreferenceFixture()}
         window.__measure = false; window.__frameCount = 0; window.__slot = null;
         window.__cpu = []; window.__mode = null;
         const fetchOriginal = window.fetch;
@@ -139,7 +141,8 @@ try {
     // Reverse the second round to expose warm-up and clock-speed bias.
     for (const mode of [1, 2, 3, 3, 2, 1]) {
         await evaluate(`(() => {const select = document.querySelector('#column-interlace');
-            select.value = '${mode}'; select.dispatchEvent(new Event('change', {bubbles: true}));})()`);
+            select.value = '${mode}'; select.dispatchEvent(new Event('change', {bubbles: true}));
+            document.querySelector('#graphics-menu form').requestSubmit();})()`);
         await waitFor(`window.__mode === ${mode}`); await delay(500);
         await evaluate('window.__frameCount = 0; window.__cpu = []; window.__measure = true');
         await waitFor('window.__frameCount === 180');
@@ -157,6 +160,7 @@ try {
         gpuTiming: 'Includes WebGPU passes, history copies, and barriers; excludes browser compositing.', results}, null, 2));
     assert.deepEqual(errors, []);
 } finally {
+    await evaluate('window.__restoreGraphicsPreferences?.()').catch(() => {});
     await send('Page.close').catch(() => {}); socket.close();
     for (const task of pending.values()) clearTimeout(task.timer);
 }

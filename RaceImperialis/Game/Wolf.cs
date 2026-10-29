@@ -23,7 +23,7 @@ public sealed class Wolf : IDisposable
     private readonly ISceneRenderer _renderer;
     private readonly GameSceneLoader _loader;
     private readonly HttpClient _http;
-    private readonly IFrameLoop _loop;
+    private readonly BrowserFrameLoop _loop;
     private readonly BlazorJSRuntime _js;
     private readonly Stopwatch _clock = new();
     private readonly SemaphoreSlim _mapSwitchLock = new(1, 1);
@@ -91,6 +91,36 @@ public sealed class Wolf : IDisposable
 
     public Task StartAsync(HTMLCanvasElement canvas, CancellationToken cancellationToken = default) =>
         _scene != null ? Task.CompletedTask : SwitchMapAsync(canvas, DefaultMapPath, cancellationToken);
+
+    public void PauseForMenu()
+    {
+        _input?.Keyboard.Reset();
+        _input?.Mouse.Release();
+        _scene?.SetPaused(true);
+    }
+
+    public void ApplyGraphicsSettings(RendererSettings settings, HTMLCanvasElement canvas)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        settings.Validate();
+        if (_renderer is not WebGpuRenderer renderer)
+            throw new NotSupportedException("This renderer cannot update graphics settings.");
+        PauseForMenu();
+        _loop.Stop();
+        try
+        {
+            renderer.ApplySettings(settings, canvas);
+            _scene?.ApplyGraphicsSettings(RendererSettings);
+            _loop.SetTargetFPS(RendererSettings.TargetFPS);
+            _fpsSampleStart = double.NaN;
+            _fpsFrameCount = 0;
+            FramesPerSecond = null;
+        }
+        finally
+        {
+            if (_scene != null) ScheduleFrame(_frameGeneration);
+        }
+    }
 
     public async Task SwitchMapAsync(HTMLCanvasElement canvas, string mapPath, CancellationToken cancellationToken = default,
         Func<string, Task>? reportProgress = null, RaceDifficulty? difficulty = null)

@@ -36,6 +36,14 @@ internal static class RacingProjectChecks
             Check(scene.Player is CarObject && scene.Opponent != null && scene.SecondOpponent != null,
                 "Standalone racing did not create a player car and both opponents.");
             var grid = scene.Player.Transform.Position;
+            var viewSettings = new RendererSettings(1024, 768, 75) { FovDegrees = 110 };
+            var raceBeforeGraphics = scene.RaceState;
+            scene.ApplyGraphicsSettings(viewSettings);
+            Check(MathF.Abs(scene.Player.Camera.Plane.Length() - viewSettings.CameraPlaneScale) < .0001f &&
+                MathF.Abs(scene.CaptureFrame().AspectRatio - 4f / 3f) < .0001f,
+                "Graphics changes did not update field of view and aspect ratio.");
+            Check(scene.Player.Transform.Position == grid && scene.RaceState == raceBeforeGraphics,
+                "Graphics changes reset the race or moved the player.");
             for (var frame = 0; frame < 60; frame++) scene.Update(1000f / 60);
             Check(scene.RaceState?.Phase == Racing.RacePhase.Countdown && scene.Player.Transform.Position == grid,
                 "Standalone countdown did not hold the starting grid.");
