@@ -150,7 +150,7 @@ public sealed class Wolf : IDisposable
             try
             {
                 if (loaded.Map.Music is { Tracks.Length: > 0 } music && _sound.GetMusicVolume(music) > 0)
-                    _audio = new MusicPlayer(new BrowserAudioBackend(canvas), music, _sound);
+                    _audio = new MusicPlayer(await BrowserAudioBackend.CreateAsync(canvas, _js), music, _sound);
             }
             catch (Exception ex)
             {
@@ -176,7 +176,7 @@ public sealed class Wolf : IDisposable
             token.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            input = new BrowserInput(canvas, _js);
+            input = await BrowserInput.CreateAsync(canvas, _js);
             var selectedDifficulty = difficulty ?? Difficulty;
             scene = new GameScene(loaded.Map, loaded.Character, input.Keyboard, input.Mouse, RendererSettings, _gameplay, selectedDifficulty);
             scene.SetPaused(!input.Mouse.IsLocked);

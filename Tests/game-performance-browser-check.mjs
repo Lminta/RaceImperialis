@@ -7,6 +7,12 @@ import {createBrowserCheck, graphicsPreferenceFixture} from './browser-check-ses
 const check = await createBrowserCheck(process.argv[2] ?? '9273');
 const {send, evaluate, waitFor, logs, errors} = check;
 const base = process.argv[3] ?? 'http://localhost:5280', label = process.argv[4] ?? 'current';
+const targetFPS = Number(process.argv[5] ?? 360);
+assert(Number.isInteger(targetFPS) && targetFPS >= 15 && targetFPS <= 1000);
+const throughput = process.argv[6] === 'throughput';
+const settings = process.argv[7] === 'default'
+    ? {...JSON.parse(fs.readFileSync('RaceImperialis/wwwroot/graphics-settings.json', 'utf8')), targetFPS}
+    : {width:800,height:600,targetFPS,maxAnisotropy:1,columnInterlaceFactor:2,fovDegrees:60,renderDistance:40,fogStartDistance:30};
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const percentile = (values, p) => values.toSorted((a, b) => a - b)[Math.floor((values.length - 1) * p)];
 async function key(code, down = true) {
@@ -24,34 +30,43 @@ function profiles(start, prefix) {
 const results = [];
 async function sample(scenario) {
     const start = logs.length;
-    await evaluate('window.__frames=0;window.__cpu=[];window.__measure=true');
+    await evaluate('window.__frames=0;window.__gpuFrames=0;window.__cpu=[];window.__measure=true');
     await delay(4000);
     assert.deepEqual(errors, []);
     const gpu = await evaluate('window.__readGpu()'), cpu = await evaluate('window.__cpu');
     assert(cpu.length > 0, logs.slice(-15).join('\n'));
+    assert(cpu.at(-1).time - cpu[0].time >= 3500, 'FPS sampling stopped before the full measurement window');
     const result = {scenario, frames: cpu.length,
         fps: (cpu.length - 1) * 1000 / (cpu.at(-1).time - cpu[0].time),
         cpuMedianMs: percentile(cpu.map(row => row.ms), .5), cpuP95Ms: percentile(cpu.map(row => row.ms), .95),
+        cpuOverBudgetPercent: cpu.filter(row => row.ms > 1000 / targetFPS).length * 100 / cpu.length,
         gpuMedianMs: gpu ? percentile(gpu, .5) : null, gpuP95Ms: gpu ? percentile(gpu, .95) : null,
+        gpuSamples: gpu?.length ?? 0,
         stages: profiles(start, '[FRAME PROFILE] '), renderer: profiles(start, '[PROFILE] ')};
     results.push(result); console.log(JSON.stringify(result));
 }
 try {
     await send('Page.addScriptToEvaluateOnNewDocument', {source: `
         ${graphicsPreferenceFixture()}
-        window.__frames=0;window.__measure=false;window.__slot=null;window.__cpu=[];window.__camera=null;
+        window.__frames=0;window.__gpuFrames=0;window.__measure=false;window.__slot=null;window.__cpu=[];window.__camera=null;
         const fetchOriginal=window.fetch;
         window.fetch=async function(input,...args){
             const response=await fetchOriginal.call(this,input,...args);
             if(String(input?.url??input).includes('graphics-settings.json')){
                 const settings=await response.json();
-                Object.assign(settings,{width:800,height:600,targetFPS:120,maxAnisotropy:1,
-                    columnInterlaceFactor:2,fovDegrees:60,renderDistance:40,fogStartDistance:30});
+                Object.assign(settings,${JSON.stringify(settings)});
                 return new Response(JSON.stringify(settings),{headers:{'Content-Type':'application/json'}});
             }
             return response;
         };
-        const raf=window.requestAnimationFrame;
+        // A separate capacity check for headless/low-refresh displays. It still
+        // executes the real frame limiter, simulation, HUD and GPU submissions
+        // against wall-clock time. These are rendered FPS, not displayed FPS.
+        const raf=${throughput} ? (()=>{
+            const channel=new MessageChannel(),pending=new Map();let id=0;
+            channel.port1.onmessage=event=>{const callback=pending.get(event.data);pending.delete(event.data);callback?.(performance.now());};
+            return callback=>{pending.set(++id,callback);channel.port2.postMessage(id);return id;};
+        })() : window.requestAnimationFrame;
         window.requestAnimationFrame=function(callback){return raf.call(this,time=>{
             const count=window.__frames,start=performance.now();callback(time);
             if(window.__frames>count)window.__cpu.push({ms:performance.now()-start,time});
@@ -66,7 +81,8 @@ try {
         GPUQueue.prototype.writeBuffer=function(buffer,offset,data,...args){
             if(buffer.label==='WolfNET Camera'){
                 window.__camera=Array.from(new Float32Array(data.buffer??data,data.byteOffset??0,16));
-                window.__slot=window.__measure&&window.__frames<1024?window.__frames++:null;
+                if(window.__measure)window.__frames++;
+                window.__slot=window.__measure&&window.__gpuFrames<1024?window.__gpuFrames++:null;
             }
             return write.call(this,buffer,offset,data,...args);
         };
@@ -86,10 +102,10 @@ try {
         };
         window.__readGpu=async function(){
             window.__measure=false;if(!window.__queries)return null;
-            const device=window.__gpu,bytes=window.__frames*16;
+            const device=window.__gpu,bytes=window.__gpuFrames*16;
             const resolve=device.createBuffer({size:bytes,usage:GPUBufferUsage.QUERY_RESOLVE|GPUBufferUsage.COPY_SRC});
             const read=device.createBuffer({size:bytes,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
-            const encoder=device.createCommandEncoder();encoder.resolveQuerySet(window.__queries,0,window.__frames*2,resolve,0);
+            const encoder=device.createCommandEncoder();encoder.resolveQuerySet(window.__queries,0,window.__gpuFrames*2,resolve,0);
             encoder.copyBufferToBuffer(resolve,0,read,0,bytes);device.queue.submit([encoder.finish()]);await read.mapAsync(GPUMapMode.READ);
             const stamps=new BigUint64Array(read.getMappedRange()),result=[];
             for(let i=0;i<stamps.length;i+=2)result.push(Number(stamps[i+1]-stamps[i])/1e6);
@@ -98,7 +114,7 @@ try {
     `});
     await send('Emulation.setDeviceMetricsOverride', {width: 1280, height: 850, deviceScaleFactor: 1, mobile: false});
     await send('Page.navigate', {url: `${base.replace(/\/$/, '')}/?profile=1`}); await send('Page.bringToFront');
-    await waitFor('window.__camera?.[6] === 800 && window.__camera?.[7] === 600 && window.__camera?.[12] === 2 && !document.querySelector(".loading-overlay")');
+    await waitFor(`window.__camera?.[6] === ${settings.width} && window.__camera?.[7] === ${settings.height} && window.__camera?.[12] === ${settings.columnInterlaceFactor} && !document.querySelector(".loading-overlay")`);
     await delay(1000); await sample('paused');
     const point = await evaluate(`(()=>{const r=document.querySelector('canvas').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
     await send('Input.dispatchMouseEvent', {type: 'mousePressed', ...point, button: 'left', clickCount: 1});
@@ -112,6 +128,8 @@ try {
     assert.deepEqual(errors, []);
     fs.mkdirSync('artifacts/game-performance', {recursive: true});
     fs.writeFileSync(`artifacts/game-performance/${label.replace(/[^a-z0-9_-]/gi, '_')}.json`, JSON.stringify({
-        settings: {width:800,height:600,targetFPS:120,maxAnisotropy:1,columnInterlaceFactor:2,fovDegrees:60,renderDistance:40,fogStartDistance:30},
-        note:'CPU includes simulation, audio, rendering, and HUD; GPU covers WebGPU passes/copies and excludes browser composition.',results},null,2));
+        settings,
+        mode:throughput?'render-throughput':'display-clock',
+        note:'CPU includes simulation, audio, rendering, and HUD; GPU samples the first 1024 frames per scenario, covers WebGPU passes/copies and excludes browser composition.'+
+            (throughput?' MessageChannel drives callbacks independently of display refresh; FPS measures rendering capacity, not displayed frames.':''),results},null,2));
 } finally { await check.close(); }

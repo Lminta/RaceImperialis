@@ -110,9 +110,20 @@ The performance comparison reports whole-frame CPU time and, when supported,
 GPU timestamps including history copies. It samples modes in both orders, temporarily
 removes the game's FPS cap, and writes `artifacts/column-rendering/performance.json`.
 The display still limits FPS. Run browser checks sequentially to preserve input focus.
-The gameplay performance check matches 800 × 600, 120 FPS, 1× filtering, every
+The gameplay performance check defaults to 800 × 600, 360 FPS, 1× filtering, every
 second column, 60° FOV, and 40/30 distance/fog. It measures paused, cockpit driving,
 steering, and chase views and saves CPU/GPU timings under `artifacts/game-performance/`.
+Pass a target FPS after the artifact name to compare frame caps. On a headless or
+lower-refresh display, append `throughput` to measure rendering capacity independently
+of display refresh; those results do not measure displayed FPS. Append `default`
+after `throughput` to use the full graphics configuration from the game:
+
+```powershell
+node Tests/game-performance-browser-check.mjs 9273 http://localhost:5280 fps360 360 throughput default
+```
+
+The game's default cap is 360 FPS. Existing saved graphics preferences keep their
+selected cap; change it in Graphics settings to use 360 FPS.
 Open the game with `?profile=1` for per-stage simulation, audio, world, and HUD timings
 in the browser console. Pixel reduction cannot remove CPU-side frame costs.
 Headless Edge needs `--enable-unsafe-webgpu` and

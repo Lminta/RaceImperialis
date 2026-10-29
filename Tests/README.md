@@ -41,5 +41,11 @@ and the narrow layout. Browser checks restore the previous saved graphics prefer
 `game-performance-browser-check.mjs` measures actual driving at the reported low
 graphics configuration, including steering and both cameras. It records whole-frame
 CPU median/p95, WebGPU time including copies, FPS, and stage timings from `?profile=1`.
-The final argument names the JSON artifact in `artifacts/game-performance/`. Browser
+Arguments after the browser port and URL are the artifact name, target FPS (default
+360), optional `throughput`, and optional `default` graphics configuration. Results
+are saved in `artifacts/game-performance/`. Throughput uses wall-clock callbacks
+independent of display refresh and measures rendering capacity, not displayed FPS.
+Without it, the check uses the game's normal animation-frame scheduler. Browser
 composition remains outside the GPU timestamps. Run performance checks alone.
+FPS and CPU samples cover the entire measurement window at every cap. GPU queries
+sample at most the first 1024 frames per scenario without limiting the FPS counter.
