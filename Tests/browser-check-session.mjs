@@ -61,7 +61,7 @@ export async function createBrowserCheck(port) {
     }
     await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
     await send('Network.setCacheDisabled', {cacheDisabled: true});
-    return {send, evaluate, waitFor, errors, async close() {
+    return {send, evaluate, waitFor, errors, logs, async close() {
         await evaluate('window.__restoreGraphicsPreferences?.()').catch(() => {});
         await send('Page.close').catch(() => {}); socket.close();
         for (const task of pending.values()) clearTimeout(task.timer);

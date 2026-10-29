@@ -125,6 +125,7 @@ canvas {
 .graphics-fields legend { padding: 0 6px; font-weight: 600; }
 .graphics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .graphics-field { display: flex; flex-direction: column; gap: 6px; }
+.graphics-resolution { grid-column: 1 / -1; }
 .graphics-field input,
 .graphics-field select {
     width: 100%;

@@ -14,6 +14,14 @@ internal static class GraphicsOptionsChecks
         var browser = new PreferenceRuntime();
         var preferences = new GraphicsPreferences(browser, initial);
         var draft = GraphicsOptions.From(initial);
+        foreach (var preset in GraphicsOptions.ResolutionPresets)
+        {
+            Check(draft.SelectResolution(preset.Value), "A resolution preset could not be selected.");
+            Check(draft.Width == preset.Width && draft.Height == preset.Height, "Resolution preset dimensions do not match.");
+        }
+        var lastResolution = (draft.Width, draft.Height);
+        Check(!draft.SelectResolution("123x456") && (draft.Width, draft.Height) == lastResolution,
+            "Free-form resolution input changed the draft.");
         draft.Width = 800; draft.Height = 600; draft.TargetFPS = 75;
         draft.MaxAnisotropy = 8; draft.ColumnInterlaceFactor = 3;
         draft.FovDegrees = 110; draft.RenderDistance = 80; draft.FogStartDistance = 55;

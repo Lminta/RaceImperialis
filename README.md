@@ -55,6 +55,8 @@ resolution, frame-rate limit, anisotropic filtering, field of view, column rende
 render distance, and fog start distance. Opening the menu pauses driving. **Apply**
 updates the current race and saves preferences in this browser; **Cancel** or **Esc**
 discards pending edits. Click the game to resume driving after closing the menu.
+Resolution is chosen from 12 presets, from 640 × 360 through 3840 × 2160,
+including 800 × 600 and other common 4:3 sizes.
 
 **Every column** is the default. **Every 2nd column** and **Every 3rd column**
 rotate through vertical columns each frame, retaining the other columns from
@@ -99,6 +101,7 @@ node Tests/car-driving-browser-check.mjs 9273 https://localhost:7280
 node Tests/column-interlacing-browser-check.mjs 9273 https://localhost:7280
 node Tests/column-rendering-performance.mjs 9273 https://localhost:7280
 node Tests/graphics-menu-browser-check.mjs 9273 https://localhost:7280
+node Tests/game-performance-browser-check.mjs 9273 https://localhost:7280 current
 ```
 
 This checks direct startup, difficulty, countdown, cockpit/chase cameras,
@@ -109,6 +112,11 @@ The performance comparison reports whole-frame CPU time and, when supported,
 GPU timestamps including history copies. It samples modes in both orders, temporarily
 removes the game's FPS cap, and writes `artifacts/column-rendering/performance.json`.
 The display still limits FPS. Run browser checks sequentially to preserve input focus.
+The gameplay performance check matches 800 × 600, 120 FPS, 1× filtering, every
+second column, 60° FOV, and 40/30 distance/fog. It measures paused, cockpit driving,
+steering, and chase views and saves CPU/GPU timings under `artifacts/game-performance/`.
+Open the game with `?profile=1` for per-stage simulation, audio, world, and HUD timings
+in the browser console. Pixel reduction cannot remove CPU-side frame costs.
 Headless Edge needs `--enable-unsafe-webgpu` and
 `--autoplay-policy=no-user-gesture-required`; trust the HTTPS development certificate
 before testing or use `--ignore-certificate-errors` only for the test browser.

@@ -78,16 +78,21 @@ try {
 
     await open();
     await waitFor(`!document.pointerLockElement && !!document.querySelector('.car-paused')`);
+    // Timing labels refresh at 10 Hz; capture the final paused value rather than
+    // the last label painted before pointer release.
+    await delay(200);
     const before = await evaluate(`({pose:window.__camera.slice(0,4),total:document.querySelector('.race-total').textContent,
         copies:window.__imageCopies})`);
-    assert.equal(await evaluate(`document.querySelectorAll('#graphics-menu input, #graphics-menu select').length`), 8);
+    assert.equal(await evaluate(`document.querySelectorAll('#graphics-menu input, #graphics-menu select').length`), 7);
+    assert.equal(await evaluate(`document.querySelector('#graphics-width, #graphics-height')`), null);
+    assert(await evaluate(`document.querySelector('#graphics-resolution').options.length >= 10`), 'Missing resolution presets');
     await snapshot('desktop');
     for (let i = 0; i < 16; i++) {
         await send('Input.dispatchKeyEvent', {type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9});
         await send('Input.dispatchKeyEvent', {type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9});
         assert(await evaluate(`document.querySelector('#graphics-menu').contains(document.activeElement)`), 'Tab escaped the modal');
     }
-    for (const [id, value] of Object.entries({'graphics-width': 800, 'graphics-height': 600, 'graphics-fps': 45,
+    for (const [id, value] of Object.entries({'graphics-resolution': '800x600', 'graphics-fps': 45,
         'graphics-anisotropy': 8, 'column-interlace': 2, 'graphics-fov': 110, 'graphics-distance': 75, 'graphics-fog': 50}))
         await set(id, value);
     await apply();
@@ -127,7 +132,7 @@ try {
     assert.equal(await evaluate(`document.querySelector('#graphics-fps').value`), '45');
     assert.equal(await evaluate(`document.querySelector('#graphics-anisotropy').value`), '8');
     await evaluate(`Array.from(document.querySelectorAll('#graphics-menu button')).find(b=>b.textContent==='Reset defaults').click()`);
-    await waitFor(`document.querySelector('#graphics-width').value === '640'`);
+    await waitFor(`document.querySelector('#graphics-resolution').value === '640x360'`);
     assert.equal(await evaluate('window.__camera[6]'), 800, 'Reset applied before confirmation');
     await apply(); await waitFor('window.__camera[6] === 640 && window.__camera[12] === 1');
 

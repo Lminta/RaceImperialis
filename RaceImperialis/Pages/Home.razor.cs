@@ -40,6 +40,11 @@ public partial class Home
     private bool _showGraphicsOnRender;
     private bool _applyingGraphics;
     private string? _graphicsError;
+    private string SelectedResolution
+    {
+        get => $"{_graphicsDraft.Width}x{_graphicsDraft.Height}";
+        set => _graphicsDraft.SelectResolution(value);
+    }
 
     private void OpenGraphicsMenu()
     {

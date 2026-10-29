@@ -60,13 +60,18 @@
         <fieldset disabled="@_applyingGraphics" class="graphics-fields">
             <legend>Display</legend>
             <div class="graphics-grid">
-                <div class="graphics-field">
-                    <label for="graphics-width">Width (pixels)</label>
-                    <InputNumber id="graphics-width" @bind-Value="_graphicsDraft.Width" min="160" max="7680" />
-                </div>
-                <div class="graphics-field">
-                    <label for="graphics-height">Height (pixels)</label>
-                    <InputNumber id="graphics-height" @bind-Value="_graphicsDraft.Height" min="90" max="4320" />
+                <div class="graphics-field graphics-resolution">
+                    <label for="graphics-resolution">Resolution</label>
+                    <select id="graphics-resolution" @bind="SelectedResolution">
+                        @if (!GraphicsOptions.ResolutionPresets.Any(preset => preset.Value == SelectedResolution))
+                        {
+                            <option value="@SelectedResolution">@_graphicsDraft.Width × @_graphicsDraft.Height (current)</option>
+                        }
+                        @foreach (var preset in GraphicsOptions.ResolutionPresets)
+                        {
+                            <option value="@preset.Value">@preset.Label</option>
+                        }
+                    </select>
                 </div>
                 <div class="graphics-field">
                     <label for="graphics-fps">Frame-rate limit (FPS)</label>

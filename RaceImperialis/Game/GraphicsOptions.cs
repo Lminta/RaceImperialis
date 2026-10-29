@@ -3,8 +3,20 @@ using WolfNET.Engine.Graphics;
 
 namespace RaceImperialis.Game;
 
+public readonly record struct GraphicsResolution(int Width, int Height)
+{
+    public string Value => $"{Width}x{Height}";
+    public string Label => $"{Width} × {Height}";
+}
+
 public sealed class GraphicsOptions : IValidatableObject
 {
+    public static IReadOnlyList<GraphicsResolution> ResolutionPresets { get; } = Array.AsReadOnly<GraphicsResolution>(
+    [
+        new(640, 360), new(640, 480), new(800, 450), new(800, 600), new(960, 540), new(1024, 768),
+        new(1280, 720), new(1280, 800), new(1600, 900), new(1920, 1080), new(2560, 1440), new(3840, 2160)
+    ]);
+
     [Range(160, 7680, ErrorMessage = "Width must be between 160 and 7680 pixels.")]
     public int Width { get; set; }
     [Range(90, 4320, ErrorMessage = "Height must be between 90 and 4320 pixels.")]
@@ -21,6 +33,18 @@ public sealed class GraphicsOptions : IValidatableObject
     public float RenderDistance { get; set; }
     [Range(0d, 1023d, ErrorMessage = "Fog start must be between 0 and 1023 map squares.")]
     public float FogStartDistance { get; set; }
+
+    public bool SelectResolution(string value)
+    {
+        foreach (var preset in ResolutionPresets)
+        {
+            if (preset.Value != value) continue;
+            Width = preset.Width;
+            Height = preset.Height;
+            return true;
+        }
+        return false;
+    }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext context)
     {

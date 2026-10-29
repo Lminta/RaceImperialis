@@ -46,6 +46,7 @@ public sealed class Wolf : IDisposable
     private int _fpsFrameCount;
     private double _lastRaceNotification = double.NegativeInfinity;
     private RaceStatus? _lastRaceState;
+    private readonly GameFrameProfile? _frameProfile;
 
     public IControlledActor? Player => _scene?.Player;
     public PlayerPose? OpponentPose => _scene?.Opponent is { } rival
@@ -79,6 +80,8 @@ public sealed class Wolf : IDisposable
         Difficulty = gameplay.Opponents.DefaultDifficulty;
         _sound = sound;
         _js = js;
+        if (js.Get<string>("location.search").TrimStart('?').Split('&').Contains("profile=1"))
+            _frameProfile = new();
         _loop = new BrowserFrameLoop(js, settings.TargetFPS);
     }
 
@@ -218,12 +221,15 @@ public sealed class Wolf : IDisposable
         if (!IsCurrent(generation)) return;
         try
         {
+            _frameProfile?.Begin();
             using var capture = _input!.Mouse.SampleForFrame();
             var wasPaused = _scene!.Paused;
             _scene.SetPaused(!_input!.Mouse.IsLocked);
+            _frameProfile?.Mark(0);
             // Recapture resumes from the preserved pose, without spending the
             // fraction of this frame that elapsed before controls were active.
             _scene.Update(wasPaused != _scene.Paused ? 0 : deltaTime);
+            _frameProfile?.Mark(1);
             var musicRace = _scene.PlayerRaceState;
             var musicVolume = 1f;
             if (musicRace is { Phase: RacePhase.Countdown } countdown)
@@ -253,15 +259,21 @@ public sealed class Wolf : IDisposable
                 return;
             }
             var renderFrame = _scene.CaptureFrame();
+            _frameProfile?.Mark(2);
             _sfx?.Update(_scene.CaptureAudioFrame(renderFrame, _input.Mouse.IsLocked && !_scene.Paused, deltaTime / 1000));
+            _frameProfile?.Mark(3);
             _renderer.Render(renderFrame);
+            _frameProfile?.Mark(4);
             ReportFrameRate();
             if (_ui != null && _hud != null)
             {
                 var viewport = _ui.Viewport;
                 _hud.Update(_scene, renderFrame, viewport, FramesPerSecond, deltaTime);
+                _frameProfile?.Mark(5);
                 _ui.Render(viewport.X, viewport.Y);
+                _frameProfile?.Mark(6);
             }
+            else { _frameProfile?.Mark(5); _frameProfile?.Mark(6); }
             if (_scene.PlayerRaceState is { } race && RaceStateChanged != null &&
                 (_clock.Elapsed.TotalMilliseconds - _lastRaceNotification >= 100 ||
                  _lastRaceState?.Phase != race.Phase || _lastRaceState?.CountdownNumber != race.CountdownNumber ||
@@ -283,6 +295,7 @@ public sealed class Wolf : IDisposable
                 _lastPoseNotification = _clock.Elapsed.TotalMilliseconds;
                 PlayerPoseChanged.Invoke(_scene.PlayerPose);
             }
+            _frameProfile?.End();
         }
         catch (Exception ex)
         {

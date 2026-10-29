@@ -37,3 +37,9 @@ GPU timing. Run browser scripts sequentially, since they change browser focus.
 pausing, all eight settings, live resolution/FOV/filtering/FPS updates, retained race
 progress and scene textures, validation, cancel/Escape, saved preferences, reset,
 and the narrow layout. Browser checks restore the previous saved graphics preferences.
+
+`game-performance-browser-check.mjs` measures actual driving at the reported low
+graphics configuration, including steering and both cameras. It records whole-frame
+CPU median/p95, WebGPU time including copies, FPS, and stage timings from `?profile=1`.
+The final argument names the JSON artifact in `artifacts/game-performance/`. Browser
+composition remains outside the GPU timestamps. Run performance checks alone.

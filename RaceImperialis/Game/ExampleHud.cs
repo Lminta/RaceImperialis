@@ -112,9 +112,10 @@ public sealed class ExampleHud : IDisposable
         if (_car)
         {
             _images[0].Style = UiStyle.Fill;
-            if (resized || _view.Visible && _images[1].Style.Rotation != view.WheelRotation)
+            if (resized)
                 _images[1].Style = new() { Anchor = new(.42f, .86f), Pivot = new(.5f), Width = viewport.X * .28f, Height = viewport.X * .28f,
                 TransformOrigin = new(.5f), Rotation = view.WheelRotation };
+            else if (_view.Visible) _images[1].Rotation = view.WheelRotation;
         }
         else for (var i = 0; i < _images.Length; i++)
         {
