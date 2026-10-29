@@ -1,6 +1,6 @@
 using System.Numerics;
 using System.Text.Json.Serialization;
-using WolfNET.Engine.World;
+using WolfSlop.Engine.World;
 
 namespace RaceImperialis.Audio;
 

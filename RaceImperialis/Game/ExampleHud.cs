@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Numerics;
-using WolfNET.Engine.UI;
+using WolfSlop.Engine.UI;
 
 namespace RaceImperialis.Game;
 
@@ -33,13 +33,13 @@ public sealed class ExampleHud : IDisposable
             ? [Image("view.cockpit", "textures/race/cockpit.png"), Image("view.wheel", "textures/race/steering-wheel.png")]
             : [Image("view.left-hand", "textures/characters/first-person-hands.png"), Image("view.right-hand", "textures/characters/first-person-hands.png")];
         foreach (var image in _images) _view.Add(image);
-        _fps = Document.Root.Add(Text("fps", "", "fps-counter", new(Size: 11)));
+        _fps = Document.Root.Add(Text("fps", "", new(Size: 11)));
         _fps.Style = new() { Anchor = new(0, 1), Pivot = new(0, 1), Position = new(8, -8), Padding = new(5, 3), Background = "#111923b3", CornerRadius = 3, ZIndex = 10 };
 
-        _hud = Document.Root.Add(new UiPanel("race-hud") { ClassName = "race-minimap", Label = "Race minimap and timing",
+        _hud = Document.Root.Add(new UiPanel("race-hud") { Label = "Race minimap and timing",
             Visible = route != null, Style = new() { Position = new(12), Layout = UiLayoutMode.Column, Gap = 8, Width = 240 } });
-        _mapViewport = _hud.Add(new UiPanel("race-map-viewport") { ClassName = "race-minimap-viewport", Role = "group", Label = "Race map viewport",
-            Style = new() { Width = 240, Height = 240, Clip = true, CornerRadius = 120 } });
+        _mapViewport = _hud.Add(new UiPanel("race-map-viewport") { Role = "group", Label = "Race map viewport",
+            Style = new() { Width = 240, Height = 240, Clip = true, CornerRadius = 120, Background = "#111923b3" } });
         _course = _mapViewport.Add(new UiCanvas("race-course") { Style = UiStyle.Fill });
         _minimap = _mapViewport.Add(new UiCanvas("race-map") { Role = "img", Label = "Nearby track and vehicle positions",
             Style = UiStyle.Fill });
@@ -52,38 +52,38 @@ public sealed class ExampleHud : IDisposable
                 course.Polyline(shortcut.Select(point => new Vector2(point[0], point[1])), "#e6bb68", 1.8f);
             _course.Drawing = course.Build();
         }
-        _timing = _hud.Add(new UiPanel("race-timing") { ClassName = "race-timing", Label = "Lap counter and race timers",
+        _timing = _hud.Add(new UiPanel("race-timing") { Label = "Lap counter and race timers",
             Style = new() { Layout = UiLayoutMode.Column, Gap = 2, Width = UiLength.Percent(1) } });
         _laps = Timing("Laps", "race-laps"); _total = Timing("Total", "race-total");
         _lap = Timing("Lap", "race-lap"); _last = Timing("Last", "race-last"); _gap = Timing("Gap", "race-gap");
 
-        _speed = Document.Root.Add(new UiPanel("speed") { ClassName = "speedometer", Label = "Speedometer", Visible = car,
+        _speed = Document.Root.Add(new UiPanel("speed") { Label = "Speedometer", Visible = car,
             Style = new() { Anchor = new(0, 1), Pivot = new(0, 1), Position = new(12, -36), Layout = UiLayoutMode.Row, Alignment = UiAlignment.End, Gap = 8 } });
-        _speedValue = _speed.Add(Text("speed-value", "0", "speedometer-value", new("ui-monospace, monospace", 64, 700, true)));
+        _speedValue = _speed.Add(Text("speed-value", "0", new("monospace", 64, 700, true)));
         _speed.Add(Text("speed-unit", "km/h", font: new(Size: 16)));
-        _pause = Document.Root.Add(Text("pause", "Click the game to resume driving.", "car-paused", new(Size: 16)));
+        _pause = Document.Root.Add(Text("pause", "Click the game to resume driving.", new(Size: 16)));
         _pause.Role = "status";
         _pause.Style = new() { Anchor = new(.5f), Pivot = new(.5f), Padding = new(16, 10), Background = "#111923e6", CornerRadius = 8, BorderWidth = 1, BorderColor = "#82919e", ZIndex = 20 };
         _pause.Visible = false;
-        _countdownPanel = Document.Root.Add(new UiPanel("countdown") { ClassName = "race-countdown", Visible = false,
+        _countdownPanel = Document.Root.Add(new UiPanel("countdown") { Visible = false,
             Style = UiStyle.Fill with { ZIndex = 30 } });
-        _countdown = _countdownPanel.Add(Text("countdown-value", "", "race-countdown-number", new(Size: 150, Weight: 800)));
+        _countdown = _countdownPanel.Add(Text("countdown-value", "", new(Size: 150, Weight: 800)));
         _countdown.Role = "status";
         _countdown.Style = new() { Anchor = new(.5f), Pivot = new(.5f), TextOutlineColor = "#111923", TextOutlineWidth = 5 };
 
-        _resultsMask = Document.Root.Add(new UiPanel("results-mask") { ClassName = "race-results-overlay", Visible = false,
+        _resultsMask = Document.Root.Add(new UiPanel("results-mask") { Visible = false,
             Style = UiStyle.Fill with { Background = "#071019b8", ZIndex = 100 }, BlocksInput = true });
-        _results = _resultsMask.Add(new UiPanel("results") { ClassName = "race-results", Role = "dialog", Label = "Race results",
+        _results = _resultsMask.Add(new UiPanel("results") { Role = "dialog", Label = "Race results",
             Style = new() { Anchor = new(.5f), Pivot = new(.5f), Width = 620, Padding = new(12), Layout = UiLayoutMode.Column,
                 Gap = 6, Background = "#111923f5", CornerRadius = 10, BorderColor = "#82919e", BorderWidth = 1 } });
         _results.Add(Text("results-title", "Race finished!", font: new(Size: 24, Weight: 700))).Role = "heading";
-        _resultTotal = _results.Add(Text("result-total", "", "race-result-total"));
+        _resultTotal = _results.Add(Text("result-total", ""));
         _resultScroll = _results.Add(new UiScrollView("result-scroll") { Style = new() { Layout = UiLayoutMode.Column, Gap = 12, Clip = true, Width = UiLength.Percent(1), Height = 320 } });
-        var standings = _resultScroll.Add(new UiPanel("standings") { ClassName = "race-standings", Role = "table",
+        var standings = _resultScroll.Add(new UiPanel("standings") { Role = "table",
             Style = new() { Width = UiLength.Percent(1), Layout = UiLayoutMode.Column } });
         TableRow(standings, "standing-header", ["Place", "Driver", "Time"], [ .15f, .4f, .45f ], header: true);
         _standingsBody = standings.Add(new UiPanel("standing-rows") { Role = "rowgroup", Style = new() { Width = UiLength.Percent(1), Layout = UiLayoutMode.Column, Gap = 3 } });
-        var lapTable = _resultScroll.Add(new UiPanel("lap-table") { ClassName = "race-lap-results", Role = "table",
+        var lapTable = _resultScroll.Add(new UiPanel("lap-table") { Role = "table",
             Style = new() { Width = UiLength.Percent(1), Layout = UiLayoutMode.Column } });
         _lapBody = lapTable.Add(new UiPanel("lap-rows") { Role = "rowgroup", Style = new() { Width = UiLength.Percent(1), Layout = UiLayoutMode.Column, Gap = 3 } });
         _restart = _results.Add(new UiButton("restart") { Text = "Restart race", Style = new() { Width = UiLength.Percent(1), Height = 40, CornerRadius = 6, Background = "#274f32", BorderWidth = 2 } });
@@ -91,16 +91,16 @@ public sealed class ExampleHud : IDisposable
     }
 
     private static UiImage Image(string id, string source) => new(id) { Source = source };
-    private static UiText Text(string id, string text, string? css = null, UiFont? font = null) => new(id)
+    private static UiText Text(string id, string text, UiFont? font = null) => new(id)
     {
-        Text = text, ClassName = css, Font = font,
+        Text = text, Font = font,
         Style = new() { TextOutlineColor = "#071018", TextOutlineWidth = 2 }
     };
-    private UiText Timing(string label, string css)
+    private UiText Timing(string label, string id)
     {
-        var row = _timing.Add(new UiPanel(css + "-row") { Style = new() { Layout = UiLayoutMode.Row, Gap = 8, Width = UiLength.Percent(1) } });
-        row.Add(Text(css + "-label", label)).Style = new() { Width = 65, TextOutlineColor = "#000", TextOutlineWidth = 2 };
-        return row.Add(Text(css, "—", css, new("ui-monospace, monospace", 22, 700, true)));
+        var row = _timing.Add(new UiPanel(id + "-row") { Style = new() { Layout = UiLayoutMode.Row, Gap = 8, Width = UiLength.Percent(1) } });
+        row.Add(Text(id + "-label", label)).Style = new() { Width = 65, TextOutlineColor = "#000", TextOutlineWidth = 2 };
+        return row.Add(Text(id, "—", new("monospace", 22, 700, true)));
     }
 
     public void Update(GameScene scene, ExampleRenderFrame frame, Vector2 viewport, int? fps, float milliseconds)
@@ -137,7 +137,6 @@ public sealed class ExampleHud : IDisposable
         _pause.Visible = _car && scene.Paused && !finished;
         _countdownPanel.Visible = phase?.CountdownNumber != null || phase is { ShowGo: true, Phase: RacePhase.Racing };
         _countdown.Text = phase?.CountdownNumber?.ToString(CultureInfo.InvariantCulture) ?? "GO";
-        _countdown.ClassName = "race-countdown-number" + (phase?.CountdownNumber == null ? " race-go" : "");
         if (resized) _countdown.Font = _countdown.Font! with { Size = Math.Clamp(viewport.Y / 4, 44, 180) };
         var fraction = phase is { Phase: RacePhase.Countdown } countdown ? (countdown.CountdownProgress * 5) % 1 : 0;
         var opacity = MathF.Max(.05f, 1 - fraction);
@@ -162,7 +161,7 @@ public sealed class ExampleHud : IDisposable
             var textSize = Math.Clamp(viewport.Y / 25, 12, 24);
             foreach (var text in _timing.DescendantsAndSelf().OfType<UiText>())
             {
-                text.Font = new("ui-monospace, monospace", textSize, text.Font?.Weight ?? 400, text.Font?.Italic ?? false);
+                text.Font = new("monospace", textSize, text.Font?.Weight ?? 400, text.Font?.Italic ?? false);
                 if (text.Id.EndsWith("-label", StringComparison.Ordinal)) text.Style = text.Style with { Width = textSize * 3.5f };
             }
             _results.Style = _results.Style with { Width = MathF.Min(620, viewport.X - 24) };
@@ -186,7 +185,6 @@ public sealed class ExampleHud : IDisposable
         _lap.Text = Time(race.LapMilliseconds); _last.Text = race.LastLapMilliseconds is { } last ? Time(last) : "—";
         _gap.Parent!.Visible = race.Opponent != null;
         _gap.Text = race.GapMilliseconds is { } gap ? (gap > 0 ? "+" : "") + (gap / 1000).ToString("0.00", CultureInfo.InvariantCulture) + "s" : "—";
-        _gap.ClassName = "race-gap" + (race.GapMilliseconds > 0 ? " race-gap-behind" : race.GapMilliseconds <= 0 ? " race-gap-ahead" : "");
         _gap.Style = _gap.Style with { Color = race.GapMilliseconds > 0 ? "#ff6969" : "#79ff88" };
     }
     private void UpdateMap(Vector2 position, Vector2 direction, Vector2? blue, Vector2? green)

@@ -1,51 +1,13 @@
-# Race Imperialis checks
+# Native game checks
 
-Run `dotnet run --project Tests/RaceImperialis.Tests.csproj` from the repository
-root. It uses the production game assembly, this repository's assets, and the
-engine submodule. Only keyboard and mouse input are substituted.
+Run from the repository root:
 
-`RacingProjectChecks` covers asset ownership, both difficulty profiles, starting
-grid/countdown locking, driving, pause/resume, clean restart state, and finishing
-after the configured ordered laps.
-`GraphicsOptionsChecks` covers validated updates, saved preferences, default snapshots,
-and fallback when saved data or browser storage is unavailable.
+```sh
+dotnet run --project Tests/RaceImperialis.Tests.csproj
+dotnet run --project RaceImperialis/RaceImperialis.csproj -- --smoke-test
+dotnet run --project RaceImperialis/RaceImperialis.csproj -- --smoke-test --gpu=vulkan
+```
 
-`car-driving-browser-check.mjs` uses real browser input and the retained UI display
-list to check direct startup, rendering, difficulty changes, countdown, driving,
-both cameras, pause/resume, mid-race restart, standings, results, and results restart.
-The short-race fixture changes invisible gates and the lap limit while keeping
-the real map, physics, rendering, and UI.
+Integration checks load direct filesystem assets and exercise difficulty, countdown, driving, pause, restarts, finishing, graphics validation and file-backed preferences. Native checks verify content path confinement, mud sample compensation, UI view-box/transform/clipping/color handling, actual font metrics, shader source hashes, and absence of web runtime dependencies.
 
-See [the root README](../README.md#checks) for browser setup and commands. Shared
-engine regression checks remain in [the engine submodule](../Engine/README.md).
-
-`column-interlacing-browser-check.mjs` checks startup graphics configuration,
-live mode changes, column phases and GPU dispatch counts at an odd viewport width,
-compact render-target widths, and full-frame priming after mode changes and race
-restarts. GPU readback while
-moving the camera verifies that skipped columns retain their exact previous colors.
-It also checks the separate HUD and releases the retained texture in full mode.
-
-`column-rendering-performance.mjs` compares CPU frame time, FPS, and optional GPU
-timestamps at 1920x1080 in a paused race. GPU timings include history copies and
-barriers; CPU timing includes the simulation and UI. It runs the three modes in
-both orders, overrides the FPS cap for the test, and saves results under
-`artifacts/column-rendering/performance.json`. Browser compositing is outside the
-GPU timing. Run browser scripts sequentially, since they change browser focus.
-
-`graphics-menu-browser-check.mjs` exercises the right-panel button, keyboard focus,
-pausing, all eight settings, live resolution/FOV/filtering/FPS updates, retained race
-progress and scene textures, validation, cancel/Escape, saved preferences, reset,
-and the narrow layout. Browser checks restore the previous saved graphics preferences.
-
-`game-performance-browser-check.mjs` measures actual driving at the reported low
-graphics configuration, including steering and both cameras. It records whole-frame
-CPU median/p95, WebGPU time including copies, FPS, and stage timings from `?profile=1`.
-Arguments after the browser port and URL are the artifact name, target FPS (default
-360), optional `throughput`, and optional `default` graphics configuration. Results
-are saved in `artifacts/game-performance/`. Throughput uses wall-clock callbacks
-independent of display refresh and measures rendering capacity, not displayed FPS.
-Without it, the check uses the game's normal animation-frame scheduler. Browser
-composition remains outside the GPU timestamps. Run performance checks alone.
-FPS and CPU samples cover the entire measurement window at every cap. GPU queries
-sample at most the first 1024 frames per scenario without limiting the FPS counter.
+GPU smoke tests open a window, execute 520 frames, validate driving and menu pause/restart, change camera/resolution/column modes, and read actual GPU output. Screenshots are saved in `artifacts/native-<driver>/`. Smoke tests default to a non-primary monitor and use non-focusable windows with synthetic input. Use `--display=2` to choose monitor 2 explicitly, or `--list-displays` to inspect the layout. Run GPU tests sequentially to avoid competing GPU load. Pure engine/UI tests remain under `Engine/Tests`.

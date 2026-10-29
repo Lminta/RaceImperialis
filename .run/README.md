@@ -1,14 +1,3 @@
 # Rider configurations
 
-Open `RaceImperialis.slnx` in Rider. All configurations build before Run/Debug.
-
-| Configuration | Starts |
-| --- | --- |
-| `Race Imperialis: http` | Pine Loop at `http://localhost:5280` |
-| `Race Imperialis: tests` | Game integration checks |
-| `WolfSlop: tests` | Portable engine checks |
-| `WolfSlop: API checks` | Independent engine API/UI checks |
-
-Initialize the Engine submodule before opening the solution. All project paths
-are relative to this repository. Local development uses localhost HTTP and does
-not require certificates.
+Open `RaceImperialis.slnx`. Use `Race Imperialis: native` to run the SDL desktop game; the test configurations run game, engine, and public API checks. Android can be opened/built separately through `RaceImperialis.Android/RaceImperialis.Android.csproj`.

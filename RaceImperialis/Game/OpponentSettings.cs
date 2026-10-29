@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using WolfNET.Engine.Actors;
+using WolfSlop.Engine.Actors;
 
 namespace RaceImperialis.Game;
 

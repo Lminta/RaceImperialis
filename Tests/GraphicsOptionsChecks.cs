@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using Microsoft.JSInterop;
+
 using RaceImperialis.Game;
-using WolfNET.Engine.Graphics;
+using WolfSlop.Engine.Graphics;
 
 internal static class GraphicsOptionsChecks
 {
@@ -11,8 +11,10 @@ internal static class GraphicsOptionsChecks
         var count = 0;
         void Check(bool value, string message) { count++; if (!value) throw new Exception(message); }
         var initial = new RendererSettings(640, 360, 30) { FovDegrees = 90, MaxMapWidth = 1024 };
-        var browser = new PreferenceRuntime();
-        var preferences = new GraphicsPreferences(browser, initial);
+        var directory = Path.Combine(Path.GetTempPath(), "race-preferences-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "graphics.json");
+        var preferences = new GraphicsPreferences(initial, path);
         var draft = GraphicsOptions.From(initial);
         foreach (var preset in GraphicsOptions.ResolutionPresets)
         {
@@ -28,7 +30,7 @@ internal static class GraphicsOptionsChecks
         initial.Apply(draft.ToRendererSettings(initial));
         await preferences.SaveAsync();
         var restored = new RendererSettings(1920, 1080, 60) { MaxMapWidth = 1024 };
-        await new GraphicsPreferences(browser, restored).LoadAsync();
+        await new GraphicsPreferences(restored, path).LoadAsync();
         Check(restored.Width == 800 && restored.Height == 600 && restored.TargetFPS == 75, "Saved display settings were lost.");
         Check(restored.MaxAnisotropy == 8 && restored.ColumnInterlaceFactor == 3 && restored.FovDegrees == 110,
             "Saved filtering, columns, or FOV were lost.");
@@ -52,29 +54,17 @@ internal static class GraphicsOptionsChecks
         catch (ArgumentException) { count++; }
         Check(restored.Width == 800 && restored.TargetFPS == 75, "A failed update partially changed active settings.");
 
-        browser.Value = "not JSON";
+        await File.WriteAllTextAsync(path, "not JSON");
         await preferences.LoadAsync();
         Check(initial.Width == 800, "Malformed saved settings replaced active settings.");
-        browser.Value = JsonSerializer.Serialize(new GraphicsOptions(), JsonSerializerOptions.Web);
+        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(new GraphicsOptions(), JsonSerializerOptions.Web));
         await preferences.LoadAsync();
         Check(initial.Width == 800, "Invalid saved values replaced active settings.");
-        browser.Blocked = true;
+        File.Delete(path); Directory.CreateDirectory(path);
         await preferences.LoadAsync();
-        Check(initial.Width == 800, "Unavailable browser storage prevented startup.");
+        Check(initial.Width == 800, "Unavailable settings storage prevented startup.");
+        Directory.Delete(path); Directory.Delete(directory);
         return count;
     }
 
-    private sealed class PreferenceRuntime : IJSRuntime
-    {
-        public string? Value { get; set; }
-        public bool Blocked { get; set; }
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, default, args);
-        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
-        {
-            if (Blocked) throw new JSException("Storage is blocked.");
-            if (identifier == "localStorage.getItem") return ValueTask.FromResult((TValue)(object?)Value!);
-            if (identifier == "localStorage.setItem") { Value = (string)args![1]!; return ValueTask.FromResult(default(TValue)!); }
-            throw new NotSupportedException(identifier);
-        }
-    }
 }

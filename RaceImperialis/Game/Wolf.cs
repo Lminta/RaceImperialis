@@ -1,386 +1,76 @@
-using System.Diagnostics;
-using SpawnDev.BlazorJS;
-using SpawnDev.BlazorJS.JSObjects;
-using WolfNET.Engine.Core;
-using WolfNET.Engine.Input;
-using WolfNET.Engine.Actors;
-using WolfNET.Engine.Graphics;
-using WolfNET.Engine.Audio;
-using WolfNET.Engine.UI;
-using WolfNET.Engine.Browser.Audio;
-using WolfNET.Engine.Browser.Core;
-using WolfNET.Engine.Browser.Graphics;
-using WolfNET.Engine.Browser.Input;
-using WolfNET.Engine.Browser.UI;
+using System.Numerics;
+using WolfSlop.Engine.Assets;
+using WolfSlop.Engine.Graphics;
+using WolfSlop.Engine.Sdl.Audio;
+using WolfSlop.Engine.Sdl.Graphics;
+using WolfSlop.Engine.Sdl.Input;
+using WolfSlop.Engine.Sdl.UI;
+using WolfSlop.Engine.UI;
 
 namespace RaceImperialis.Game;
 
-/// <summary>Coordinates browser frames, scene loading, and renderer lifetime.</summary>
-public sealed class Wolf : IDisposable
+/// <summary>Native game composition. All SDL calls run on the window thread.</summary>
+public sealed class Wolf(DirectoryAssetSource assets, RendererSettings settings, GameplaySettings gameplay, SoundSettings sound,
+    SdlSceneRenderer renderer, SdlUiRenderer ui, SdlInput input) : IDisposable
 {
     public const string DefaultMapPath = "maps/pine-loop.json";
-
-    private readonly ISceneRenderer _renderer;
-    private readonly GameSceneLoader _loader;
-    private readonly HttpClient _http;
-    private readonly BrowserFrameLoop _loop;
-    private readonly BlazorJSRuntime _js;
-    private readonly Stopwatch _clock = new();
-    private readonly SemaphoreSlim _mapSwitchLock = new(1, 1);
-    private readonly CancellationTokenSource _lifetime = new();
-    private CancellationTokenSource? _pendingLoad;
     private GameScene? _scene;
-    private BrowserInput? _input;
-    private MusicPlayer? _audio;
-    private SfxSystem? _sfx;
-    private BrowserUiHost? _ui;
     private ExampleHud? _hud;
-    private TextureCatalog? _sceneTextures;
-    private bool _disposed;
-    private int _frameGeneration;
-    private double _lastPoseNotification = double.NegativeInfinity;
-    private double _lastDrivingNotification = double.NegativeInfinity;
-    private readonly GameplaySettings _gameplay;
-    private readonly SoundSettings _sound;
-    private double _fpsSampleStart = double.NaN;
-    private int _fpsFrameCount;
-    private double _lastRaceNotification = double.NegativeInfinity;
-    private RaceStatus? _lastRaceState;
-    private readonly GameFrameProfile? _frameProfile;
-
-    public IControlledActor? Player => _scene?.Player;
-    public PlayerPose? OpponentPose => _scene?.Opponent is { } rival
-        ? new(rival.Transform.Position, rival.Transform.Rotation) : null;
-    public PlayerPose? SecondOpponentPose => _scene?.SecondOpponent is { } rival
-        ? new(rival.Transform.Position, rival.Transform.Rotation) : null;
-    public DrivingViewState? DrivingState => _scene?.DrivingState;
-    public RaceStatus? RaceState => _scene?.RaceState;
-    public KeyTracker KeyTracker => _input?.Keyboard ?? throw new InvalidOperationException("No scene is running.");
-    public MouseTracker MouseTracker => _input?.Mouse ?? throw new InvalidOperationException("No scene is running.");
-    public IMap Map => _scene?.Map ?? throw new InvalidOperationException("No scene is running.");
-    public RendererSettings RendererSettings { get; }
-    public string? CurrentMapPath { get; private set; }
-    public RaceDifficulty Difficulty { get; private set; }
-    public int? FramesPerSecond { get; private set; }
-    public event Action<string>? MapSwitchRequested;
-    public event Action<PlayerPose>? PlayerPoseChanged;
-    public event Action<DrivingViewState>? DrivingStateChanged;
-    public event Action<int?>? FramesPerSecondChanged;
-    public event Action<RaceStatus>? RaceStateChanged;
-
-    public Wolf(RendererSettings settings, ISceneRenderer renderer, GameSceneLoader loader, BlazorJSRuntime js,
-        GameplaySettings gameplay, SoundSettings sound, HttpClient http)
+    private NativeMenu? _menu;
+    private MusicPlayer? _music;
+    private SfxSystem? _sfx;
+    private RaceDifficulty? _restart;
+    private float _fpsTime;
+    private int _frames, _fps;
+    public GameScene Scene => _scene ?? throw new InvalidOperationException("Load a race first.");
+    public UiDocument Document => _hud!.Document;
+    public RaceDifficulty Difficulty { get; private set; } = gameplay.Opponents.DefaultDifficulty;
+    public bool MenuOpen => _menu?.IsOpen == true;
+    public void Load(GraphicsPreferences preferences, RaceDifficulty? difficulty = null)
     {
-        settings.Validate();
-        RendererSettings = settings;
-        _renderer = renderer;
-        _loader = loader;
-        _http = http;
-        _gameplay = gameplay;
-        Difficulty = gameplay.Opponents.DefaultDifficulty;
-        _sound = sound;
-        _js = js;
-        if (js.Get<string>("location.search").TrimStart('?').Split('&').Contains("profile=1"))
-            _frameProfile = new();
-        _loop = new BrowserFrameLoop(js, settings.TargetFPS);
-    }
-
-    public void AttachUi(BrowserUiHost ui)
-    {
-        if (_disposed) { ui.Dispose(); throw new ObjectDisposedException(nameof(Wolf)); }
-        if (_ui != null) throw new InvalidOperationException("A UI host is already attached.");
-        _ui = ui;
-    }
-
-    public Task StartAsync(HTMLCanvasElement canvas, CancellationToken cancellationToken = default) =>
-        _scene != null ? Task.CompletedTask : SwitchMapAsync(canvas, DefaultMapPath, cancellationToken);
-
-    public void PauseForMenu()
-    {
-        _input?.Keyboard.Reset();
-        _input?.Mouse.Release();
-        _scene?.SetPaused(true);
-    }
-
-    public void ApplyGraphicsSettings(RendererSettings settings, HTMLCanvasElement canvas)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        settings.Validate();
-        if (_renderer is not WebGpuRenderer renderer)
-            throw new NotSupportedException("This renderer cannot update graphics settings.");
-        PauseForMenu();
-        _loop.Stop();
+        input.Release(); _music?.Dispose(); _music = null; _sfx?.Dispose(); _sfx = null;
+        _hud?.Dispose(); _scene?.Dispose(); Difficulty = difficulty ?? Difficulty;
+        var loaded = new GameSceneLoader(assets, settings, gameplay).LoadAsync(DefaultMapPath).GetAwaiter().GetResult();
+        renderer.PrepareSceneAsync(loaded.Map.RendererMap, resources: new(loaded.Character.AddTextures(loaded.Map.RendererMap.Textures))).GetAwaiter().GetResult();
+        _scene = new(loaded.Map, loaded.Character, input, input, settings, gameplay, Difficulty); _scene.SetPaused(true);
+        _hud = new(true, loaded.Map.RendererMap.GetRaceMinimap());
+        _hud.RestartRequested += Restart;
+        _menu = new(Document, settings, preferences, () => input.Release(), () => Difficulty, next => _restart = next,
+            next => { renderer.ApplySettings(next); Scene.ApplyGraphicsSettings(settings); });
         try
         {
-            renderer.ApplySettings(settings, canvas);
-            _scene?.ApplyGraphicsSettings(RendererSettings);
-            _loop.SetTargetFPS(RendererSettings.TargetFPS);
-            _fpsSampleStart = double.NaN;
-            _fpsFrameCount = 0;
-            FramesPerSecond = null;
+            if (loaded.Map.Music is { Tracks.Length: > 0 } music && sound.GetMusicVolume(music) > 0)
+                _music = new(new SdlAudioBackend(assets), music, sound);
+            if (sound.Volume > 0 && sound.Sfx.Volume > 0)
+            {
+                var effects = new SdlSfxBackend<SfxCue>(assets, sound.Sfx.Clips, new SfxVariantSelector().Select, (cue, path) => {
+                    if (cue is not (SfxCue.MudSlow or SfxCue.MudMid or SfxCue.MudHigh)) return 1;
+                    using var wave = assets.Open(path); return SfxClipLevels.MudGain(wave);
+                });
+                var gate = loaded.Map.RendererMap.GetRace()?.StartFinish.Center;
+                _sfx = new(effects, sound, loaded.Map.AmbientEmitters.Where(e => e.Cue == "crowd").Select(e => e.Position).ToArray(),
+                    gate == null ? loaded.Map.SpawnPosition : new(gate[0], gate[1]));
+            }
         }
-        finally
-        {
-            if (_scene != null) ScheduleFrame(_frameGeneration);
-        }
+        catch (Exception ex) { Console.Error.WriteLine($"[AUDIO] {ex.Message}"); }
+        _fpsTime = 0; _frames = 0; _restart = null;
     }
-
-    public async Task SwitchMapAsync(HTMLCanvasElement canvas, string mapPath, CancellationToken cancellationToken = default,
-        Func<string, Task>? reportProgress = null, RaceDifficulty? difficulty = null)
+    public void ToggleMenu() { if (_menu!.IsOpen) _menu.Close(); else _menu.Open(); }
+    public void Restart() => _restart = Difficulty;
+    public void Frame(float milliseconds, Vector2 viewport, GraphicsPreferences preferences)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        using var operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-        var token = operation.Token;
-        await _mapSwitchLock.WaitAsync(token);
-        BrowserInput? input = null;
-        GameScene? scene = null;
-        ExampleHud? hud = null;
-        try
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            Stop();
-            _pendingLoad = operation;
-            if (reportProgress != null) await reportProgress("Loading map and objects...");
-            var loaded = await _loader.LoadAsync(mapPath, token);
-            await _renderer.PrepareSceneAsync(loaded.Map.RendererMap, token, reportProgress, new(loaded.Character.AddTextures(loaded.Map.RendererMap.Textures)));
-            hud = new(loaded.Map.Spawn.Controller == "car", loaded.Map.RendererMap.GetRaceMinimap());
-            hud.RestartRequested += () => { if (CurrentMapPath is { } path) MapSwitchRequested?.Invoke(path); };
-            _ui?.SetDocument(hud.Document);
-            if (_ui != null) await _ui.PrepareImagesAsync(token);
-            try
-            {
-                if (loaded.Map.Music is { Tracks.Length: > 0 } music && _sound.GetMusicVolume(music) > 0)
-                    _audio = new MusicPlayer(await BrowserAudioBackend.CreateAsync(canvas, _js), music, _sound);
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"[AUDIO] Music unavailable: {ex.Message}");
-            }
-            if (_sound.Volume > 0 && _sound.Sfx.Volume > 0)
-            {
-                if (reportProgress != null) await reportProgress("Loading sound effects...");
-                try
-                {
-                    var effects = await BrowserSfxBackend<SfxCue>.CreateAsync(_http, _js, canvas, _sound.Sfx.Clips, token,
-                        new SfxVariantSelector().Select, (cue, channels) => cue is SfxCue.MudSlow or SfxCue.MudMid or SfxCue.MudHigh
-                            ? SfxClipLevels.MudGain(channels) : 1,
-                        analyzeClip: cue => cue is SfxCue.MudSlow or SfxCue.MudMid or SfxCue.MudHigh);
-                    var gate = loaded.Map.RendererMap.GetRace()?.StartFinish.Center;
-                    _sfx = new SfxSystem(effects, _sound, loaded.Map.AmbientEmitters.Where(emitter => emitter.Cue == "crowd").Select(emitter => emitter.Position).ToArray(),
-                        gate == null ? loaded.Map.SpawnPosition : new(gate[0], gate[1]));
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex) { Console.WriteLine($"[SFX] Effects unavailable: {ex.Message}"); }
-            }
-            if (reportProgress != null) await reportProgress("Entering scene...");
-            token.ThrowIfCancellationRequested();
-            ObjectDisposedException.ThrowIf(_disposed, this);
-
-            input = await BrowserInput.CreateAsync(canvas, _js);
-            var selectedDifficulty = difficulty ?? Difficulty;
-            scene = new GameScene(loaded.Map, loaded.Character, input.Keyboard, input.Mouse, RendererSettings, _gameplay, selectedDifficulty);
-            scene.SetPaused(!input.Mouse.IsLocked);
-            _input = input;
-            _scene = scene;
-            _hud = hud;
-            input = null;
-            scene = null;
-            hud = null;
-            _sceneTextures = loaded.Map.RendererMap.Textures;
-            CurrentMapPath = mapPath;
-            Difficulty = selectedDifficulty;
-            _clock.Restart();
-            _lastPoseNotification = double.NegativeInfinity;
-            _lastDrivingNotification = double.NegativeInfinity;
-            _lastRaceNotification = double.NegativeInfinity;
-            _lastRaceState = null;
-            int generation = ++_frameGeneration;
-            Console.WriteLine($"[GAME] Started. Target FPS: {RendererSettings.TargetFPS}");
-            ScheduleFrame(generation);
-        }
-        catch
-        {
-            scene?.Dispose();
-            input?.Dispose();
-            hud?.Dispose();
-            Stop();
-            throw;
-        }
-        finally
-        {
-            _pendingLoad = null;
-            _mapSwitchLock.Release();
-        }
+        if (_restart is { } next) Load(preferences, next);
+        var wasPaused = Scene.Paused; Scene.SetPaused(!input.Captured || MenuOpen);
+        Scene.Update(wasPaused != Scene.Paused ? 0 : Math.Min(100, milliseconds));
+        var race = Scene.PlayerRaceState;
+        var volume = race is { Phase: RacePhase.Countdown } countdown ? sound.CountdownVolumeScale(countdown.CountdownProgress) : 1;
+        _music?.SetPlaying(!Scene.Paused && race?.Phase is RacePhase.Countdown or RacePhase.Racing, volume); _music?.Update();
+        if (race is { Phase: RacePhase.Finished } && input.Captured) input.Release();
+        var frame = Scene.CaptureFrame(); _sfx?.Update(Scene.CaptureAudioFrame(frame, !Scene.Paused, milliseconds / 1000)); renderer.Render(frame);
+        _frames++; _fpsTime += milliseconds;
+        if (_fpsTime >= 500) { _fps = (int)MathF.Round(_frames * 1000 / _fpsTime); _fpsTime = 0; _frames = 0; }
+        _hud!.Update(Scene, frame, viewport, _fps, milliseconds);
+        ui.Render(Document.BuildFrame(viewport, ui)); renderer.Present(ui.Bitmap);
     }
-
-    private void ScheduleFrame(int generation) => _loop.Start(delta => Frame(generation, delta));
-    private bool IsCurrent(int generation) => !_disposed && _scene != null && generation == _frameGeneration;
-
-    private void Frame(int generation, float deltaTime)
-    {
-        if (!IsCurrent(generation)) return;
-        try
-        {
-            _frameProfile?.Begin();
-            using var capture = _input!.Mouse.SampleForFrame();
-            var wasPaused = _scene!.Paused;
-            _scene.SetPaused(!_input!.Mouse.IsLocked);
-            _frameProfile?.Mark(0);
-            // Recapture resumes from the preserved pose, without spending the
-            // fraction of this frame that elapsed before controls were active.
-            _scene.Update(wasPaused != _scene.Paused ? 0 : deltaTime);
-            _frameProfile?.Mark(1);
-            var musicRace = _scene.PlayerRaceState;
-            var musicVolume = 1f;
-            if (musicRace is { Phase: RacePhase.Countdown } countdown)
-            {
-                var progress = countdown.CountdownProgress;
-                // Smoothstep starts softly and reaches full volume with a flat
-                // slope at GO. Simulation progress also freezes during pauses.
-                musicVolume = _sound.CountdownVolumeScale(progress);
-            }
-            _audio?.SetPlaying(!_scene.Paused &&
-                (musicRace == null || musicRace.Value.Phase is RacePhase.Countdown or RacePhase.Racing), musicVolume);
-            _audio?.Update();
-            if (_scene.PlayerRaceState is { Phase: RacePhase.Finished } && _input.Mouse.IsLocked)
-            {
-                _input.Keyboard.Reset();
-                _input.Mouse.Release();
-            }
-            if (_scene.ConsumeMapRequest() is { } destination && destination != CurrentMapPath && MapSwitchRequested != null)
-            {
-                MapSwitchRequested.Invoke(destination);
-                return;
-            }
-            if (!ReferenceEquals(_sceneTextures, _scene.Map.RendererMap.Textures))
-            {
-                _loop.Stop();
-                _ = RefreshSceneAsync(generation);
-                return;
-            }
-            var renderFrame = _scene.CaptureFrame();
-            _frameProfile?.Mark(2);
-            _sfx?.Update(_scene.CaptureAudioFrame(renderFrame, _input.Mouse.IsLocked && !_scene.Paused, deltaTime / 1000));
-            _frameProfile?.Mark(3);
-            _renderer.Render(renderFrame);
-            _frameProfile?.Mark(4);
-            ReportFrameRate();
-            if (_ui != null && _hud != null)
-            {
-                var viewport = _ui.Viewport;
-                _hud.Update(_scene, renderFrame, viewport, FramesPerSecond, deltaTime);
-                _frameProfile?.Mark(5);
-                _ui.Render(viewport.X, viewport.Y);
-                _frameProfile?.Mark(6);
-            }
-            else { _frameProfile?.Mark(5); _frameProfile?.Mark(6); }
-            if (_scene.PlayerRaceState is { } race && RaceStateChanged != null &&
-                (_clock.Elapsed.TotalMilliseconds - _lastRaceNotification >= 100 ||
-                 _lastRaceState?.Phase != race.Phase || _lastRaceState?.CountdownNumber != race.CountdownNumber ||
-                 _lastRaceState?.ShowGo != race.ShowGo))
-            {
-                _lastRaceNotification = _clock.Elapsed.TotalMilliseconds;
-                _lastRaceState = race;
-                RaceStateChanged.Invoke(_scene.RaceState!.Value);
-            }
-            if (_scene.DrivingState is { } driving && DrivingStateChanged != null &&
-                _clock.Elapsed.TotalMilliseconds - _lastDrivingNotification >= 1000d / 30)
-            {
-                _lastDrivingNotification = _clock.Elapsed.TotalMilliseconds;
-                DrivingStateChanged.Invoke(driving);
-            }
-            if (_scene.Map.RendererMap.GetRaceMinimap() != null && PlayerPoseChanged != null &&
-                _clock.Elapsed.TotalMilliseconds - _lastPoseNotification >= 50)
-            {
-                _lastPoseNotification = _clock.Elapsed.TotalMilliseconds;
-                PlayerPoseChanged.Invoke(_scene.PlayerPose);
-            }
-            _frameProfile?.End();
-        }
-        catch (Exception ex)
-        {
-            Stop();
-            Console.Error.WriteLine($"[GAME] Frame failed: {ex}");
-        }
-    }
-
-    private void ReportFrameRate()
-    {
-        var now = _clock.Elapsed.TotalMilliseconds;
-        if (double.IsNaN(_fpsSampleStart)) { _fpsSampleStart = now; return; }
-        _fpsFrameCount++;
-        var elapsed = now - _fpsSampleStart;
-        if (elapsed < 500) return;
-        var fps = (int)Math.Round(_fpsFrameCount * 1000d / elapsed);
-        _fpsSampleStart = now;
-        _fpsFrameCount = 0;
-        if (FramesPerSecond == fps) return;
-        FramesPerSecond = fps;
-        FramesPerSecondChanged?.Invoke(fps);
-    }
-
-    // Edited maps can add textures. Serialize uploads with map switches.
-    private async Task RefreshSceneAsync(int generation)
-    {
-        using var operation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
-        await _mapSwitchLock.WaitAsync();
-        try
-        {
-            if (!IsCurrent(generation)) return;
-            _pendingLoad = operation;
-            var map = _scene!.Map.RendererMap;
-            await _renderer.PrepareSceneAsync(map, operation.Token, resources: new(_scene.Character.AddTextures(map.Textures)));
-            if (!IsCurrent(generation)) return;
-            _sceneTextures = map.Textures;
-            ScheduleFrame(generation);
-        }
-        catch (OperationCanceledException) when (operation.IsCancellationRequested) { }
-        catch (Exception ex)
-        {
-            if (IsCurrent(generation)) Stop();
-            Console.Error.WriteLine($"[GAME] Scene update failed: {ex}");
-        }
-        finally
-        {
-            _pendingLoad = null;
-            _mapSwitchLock.Release();
-        }
-    }
-
-    public void Stop()
-    {
-        _pendingLoad?.Cancel();
-        _frameGeneration++;
-        _loop.Stop();
-        _clock.Stop();
-        _fpsSampleStart = double.NaN;
-        _fpsFrameCount = 0;
-        FramesPerSecond = null;
-        FramesPerSecondChanged?.Invoke(null);
-        _audio?.Dispose();
-        _audio = null;
-        _sfx?.Dispose();
-        _sfx = null;
-        _ui?.SetDocument(null);
-        _hud?.Dispose(); _hud = null;
-        _input?.Dispose();
-        _scene?.Dispose();
-        _input = null;
-        _scene = null;
-        _sceneTextures = null;
-        CurrentMapPath = null;
-        _renderer.ReleaseScene();
-    }
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        _lifetime.Cancel();
-        Stop();
-        _loop.Dispose();
-        _ui?.Dispose(); _ui = null;
-        // Pending operations still own linked tokens and release the semaphore in finally.
-        _lifetime.Dispose();
-    }
+    public void Dispose() { input.Release(); _music?.Dispose(); _sfx?.Dispose(); _hud?.Dispose(); _scene?.Dispose(); }
 }

@@ -1,131 +1,72 @@
 # Race Imperialis
 
-A Blazor WebAssembly racing game built with [WolfSlop](https://github.com/Lminta/WolfSlop).
-Opening the game loads Pine Loop directly. Click the canvas to capture the mouse
-and begin the countdown.
+A native .NET 10 racing game using SDL3 and SDL GPU. Race two opponents through Pine Loop with cockpit/chase cameras, lap timing, ordered checkpoints, difficulty settings, music, spatial sound, and a retained UI HUD.
 
-Race two AI opponents through a forest circuit, tunnel, and tire-lined bends.
-The game includes Normal/Easy difficulty, ordered checkpoints, lap timing,
-standings and results, restart, cockpit/chase cameras, a rotating minimap, music,
-and driving sound effects.
+## Run on Windows or Linux
 
-## Run
-
-Use the .NET 10 SDK and a browser with WebGPU support:
-
-```powershell
+```sh
 git clone --recurse-submodules https://github.com/Lminta/RaceImperialis.git
 cd RaceImperialis
-dotnet build RaceImperialis.slnx
 dotnet run --project RaceImperialis/RaceImperialis.csproj
 ```
 
-Open **http://localhost:5280**, or open `RaceImperialis.slnx` in Rider and select
-**Race Imperialis: http**. The local launch profile requires no certificate.
-Browsers allow WebGPU on localhost HTTP; access from another device requires HTTPS.
+The native provider selects D3D12 or Vulkan. A compatible GPU and driver are required. On Linux, install your distribution's Vulkan loader/driver and the desktop/audio libraries needed by SDL. The packaged Linux native libraries require glibc 2.28 or newer.
 
-For an existing checkout, initialize the engine before building:
+Click the game to start or resume. W accelerates; S brakes then reverses; A/D or arrows steer; Space brakes; V changes camera; mouse movement orbits the chase camera. Esc pauses and releases the mouse. R restarts; F1 opens graphics settings. Menus also support Tab and Enter.
 
-```powershell
-git submodule update --init --recursive
+The graphics menu provides resolution presets, FPS cap, filtering, field of view, column rendering, render distance, and fog. Click a value to cycle choices. Apply saves a JSON file under the user's local application-data directory in `RaceImperialis/graphics.json`. Cancel preserves active settings. Defaults come from `Content/graphics-settings.json`.
+
+Column modes 2 and 3 update alternating columns in a persistent world target. Compute rays and expensive world shading skip other columns; the HUD is composited every frame. Fast motion can show trails. The native implementation uses a full-size retained target; performance depends on the GPU and UI workload.
+
+## Publish desktop builds
+
+```sh
+dotnet publish RaceImperialis/RaceImperialis.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish/win-x64
+dotnet publish RaceImperialis/RaceImperialis.csproj -c Release -r linux-x64 --self-contained true -o artifacts/publish/linux-x64
 ```
 
-## Controls
+Distribute the complete output directory, including `Content` and native libraries.
 
-| Input | Action |
-| --- | --- |
-| W | Accelerate |
-| A/D or left/right arrows | Steer |
-| S | Brake, then reverse |
-| Space | Brake |
-| V | Switch cockpit/chase camera |
-| Mouse | Orbit the chase camera |
-| Esc | Pause and release the mouse |
-| Click the canvas | Start or resume |
+## Android
 
-Changing difficulty restarts the race. The restart controls reset the grid,
-opponents, timers, and countdown while retaining the selected difficulty.
+```sh
+dotnet workload install android
+dotnet build RaceImperialis.Android/RaceImperialis.Android.csproj
+```
 
-## Graphics
+Android also needs the Android SDK and JDK. The separate project creates an APK; it stays outside the desktop solution so desktop builds do not require mobile tooling. The activity uses landscape orientation and extracts bundled content into private app storage for native streaming audio. No network permission is needed.
 
-Click **Graphics settings** on the right panel to open the game menu. It includes
-resolution, frame-rate limit, anisotropic filtering, field of view, column rendering,
-render distance, and fog start distance. Opening the menu pauses driving. **Apply**
-updates the current race and saves preferences in this browser; **Cancel** or **Esc**
-discards pending edits. Click the game to resume driving after closing the menu.
-Resolution is chosen from 12 presets, from 640 × 360 through 3840 × 2160,
-including 800 × 600 and other common 4:3 sizes.
+Tap to start/resume. The lower screen is split into left steering, right steering, brake/reverse, and acceleration regions. Tap the upper-left region to change camera and upper-right to open the menu. Backgrounding releases controls and pauses the race. Android uses Vulkan with optional SDL GPU features disabled and filtering limited to 1� for wider driver compatibility. A Vulkan-capable device is required; minimum Android version alone does not guarantee compatible graphics.
 
-**Every column** is the default. **Every 2nd column** and **Every 3rd column**
-rotate through vertical columns each frame, retaining the other columns from
-previous frames. The world is shaded into a compact half-width or third-width
-target, then combined with the retained columns. This reduces actual fragment work;
-fast motion can show interlacing trails. Screen overlays and the HUD update every frame.
-Loading a race or changing modes first refreshes the entire scene.
-FPS remains limited by the display, `targetFPS`, and CPU simulation/UI work.
+Windows D3D12 and Vulkan have been exercised locally. Linux publishing and Android APK building are checked; Linux runtime and Android device behavior still need testing. The SDL Android package currently produces duplicate `libSDL3.so` packaging warnings; the SDK retains one copy per ABI.
 
-`RaceImperialis/wwwroot/graphics-settings.json` supplies defaults, including
-`columnInterlaceFactor` (`1`, `2`, or `3`). Saved browser preferences take precedence.
-**Reset defaults** restores the file's values in the menu; choose **Apply** to save them.
+## Projects
 
-## Repository
+- `RaceImperialis/`: desktop entry point, game source, and `Content/` assets.
+- `RaceImperialis/Core/`: shared game library used by desktop, Android, and tests.
+- `RaceImperialis.Android/`: Android activity and packaging.
+- `Engine/`: WolfSlop submodule with a portable core and native SDL provider.
+- `Tests/`: game, asset, preferences, native UI, and shader-consistency checks.
 
-- `RaceImperialis/`: application host, game rules, opponents, UI, and audio policy.
-- `RaceImperialis/wwwroot/`: Pine Loop and its own maps, objects, artwork, music,
-  sounds, and editable graphics/gameplay/audio settings.
-- `Engine/`: the [WolfSlop Git submodule](https://github.com/Lminta/WolfSlop.git),
-  including the portable engine and browser bindings referenced by this solution.
-- `Tests/`: native racing integration checks and a browser driving check.
-- `.run/`: shared Rider run/debug configurations.
-
-The game builds and runs independently of the WolfNET examples repository.
-Engine documentation is available in [Engine/README.md](Engine/README.md).
+The engine owns simulation and provider contracts. `WolfSlop.Engine.Sdl` owns SDL GPU, native input, SDL_mixer playback, image decoding, and SkiaSharp UI rasterization. HLSL sources and precompiled SPIR-V/DXIL live in the provider; shader compilers are build tools only.
 
 ## Checks
 
-```powershell
+```sh
+dotnet build RaceImperialis.slnx
 dotnet run --project Tests/RaceImperialis.Tests.csproj
+dotnet run --project Engine/Tests/EngineTests/WolfSlop.EngineTests.csproj
+dotnet run --project Engine/Tests/EngineConsumer/WolfSlop.EngineConsumer.csproj
+dotnet run --project RaceImperialis/RaceImperialis.csproj -- --smoke-test
+dotnet run --project RaceImperialis/RaceImperialis.csproj -- --smoke-test --gpu=vulkan
 ```
 
-The integration checks load this game's own assets and exercise both difficulty
-profiles, countdown, driving, pause/resume, fresh race state, and ordered finishing.
-The solution also includes the engine's native and public API test runners.
+The GPU smoke test opens a real window and exercises countdown/driving, cameras, column modes, resolution changes, menu pause, Easy restart, and GPU readback. It exits automatically and saves screenshots in `artifacts/native-<driver>/`. Smoke tests automatically use the first non-primary monitor when available. Their windows do not take focus or capture the mouse/keyboard; driving uses synthetic input. Run GPU tests sequentially to avoid competing GPU load. `--display=2` explicitly chooses the second monitor (numbered from 1); `--list-displays` lists monitor names and bounds. `--gpu-debug` enables SDL GPU validation; `--gpu=direct3d12` or `--gpu=vulkan` selects a backend.
 
-For the full browser check, start the game and a Chromium browser with remote
-debugging enabled, then run with Node 22 or newer:
+After modifying HLSL, rebuild both shader formats:
 
-```powershell
-node Tests/car-driving-browser-check.mjs 9273 http://localhost:5280
-node Tests/column-interlacing-browser-check.mjs 9273 http://localhost:5280
-node Tests/column-rendering-performance.mjs 9273 http://localhost:5280
-node Tests/graphics-menu-browser-check.mjs 9273 http://localhost:5280
-node Tests/game-performance-browser-check.mjs 9273 http://localhost:5280 current
+```sh
+dotnet run --project Engine/Tools/ShaderCompiler/ShaderCompiler.csproj
 ```
 
-This checks direct startup, difficulty, countdown, cockpit/chase cameras,
-acceleration, steering, braking, reverse, pause/resume, restarts, and race results.
-The interlacing check verifies live graphics modes, reduced ray dispatch, retained
-column colors through GPU readback, and complete frames on mode changes and restarts.
-The performance comparison reports whole-frame CPU time and, when supported,
-GPU timestamps including history copies. It samples modes in both orders, temporarily
-removes the game's FPS cap, and writes `artifacts/column-rendering/performance.json`.
-The display still limits FPS. Run browser checks sequentially to preserve input focus.
-The gameplay performance check defaults to 800 × 600, 360 FPS, 1× filtering, every
-second column, 60° FOV, and 40/30 distance/fog. It measures paused, cockpit driving,
-steering, and chase views and saves CPU/GPU timings under `artifacts/game-performance/`.
-Pass a target FPS after the artifact name to compare frame caps. On a headless or
-lower-refresh display, append `throughput` to measure rendering capacity independently
-of display refresh; those results do not measure displayed FPS. Append `default`
-after `throughput` to use the full graphics configuration from the game:
-
-```powershell
-node Tests/game-performance-browser-check.mjs 9273 http://localhost:5280 fps360 360 throughput default
-```
-
-The game's default cap is 360 FPS. Existing saved graphics preferences keep their
-selected cap; change it in Graphics settings to use 360 FPS.
-Open the game with `?profile=1` for per-stage simulation, audio, world, and HUD timings
-in the browser console. Pixel reduction cannot remove CPU-side frame costs.
-Headless Edge needs `--enable-unsafe-webgpu` and
-`--autoplay-policy=no-user-gesture-required`. The default localhost HTTP URL
-requires no certificate flags.
+Commit the updated sources, binaries, and source hash manifest together. The shader compiler tool requires desktop SDL_shadercross binaries supplied by its NuGet packages.

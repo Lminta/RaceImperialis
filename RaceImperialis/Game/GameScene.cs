@@ -1,17 +1,17 @@
 using System.Numerics;
-using WolfNET.Engine.Core;
-using WolfNET.Engine.Input;
-using WolfNET.Engine.Actors;
-using WolfNET.Engine.Physics;
-using WolfNET.Engine.Graphics;
-using WolfNET.Engine.Audio;
+using WolfSlop.Engine.Core;
+using WolfSlop.Engine.Input;
+using WolfSlop.Engine.Actors;
+using WolfSlop.Engine.Physics;
+using WolfSlop.Engine.Graphics;
+using WolfSlop.Engine.Audio;
 
 namespace RaceImperialis.Game;
 
 public readonly record struct PlayerPose(Vector2 Position, Vector2 Direction);
 public readonly record struct DrivingViewState(bool ThirdPerson, bool Paused, float SteeringAngle, float Speed, float CameraYaw);
 
-/// <summary>Owns simulation objects for one map. Browser and GPU lifetimes belong to the host.</summary>
+/// <summary>Owns simulation objects for one map. Window and GPU lifetimes belong to the host.</summary>
 public sealed class GameScene : IScene
 {
     private readonly ObjectCollection _objects = new();

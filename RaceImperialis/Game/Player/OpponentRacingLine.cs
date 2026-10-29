@@ -1,5 +1,5 @@
 using System.Numerics;
-using WolfNET.Engine.Physics;
+using WolfSlop.Engine.Physics;
 
 namespace RaceImperialis.Game.Player;
 

@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using WolfNET.Engine.Graphics;
+using WolfSlop.Engine.Graphics;
 
 namespace RaceImperialis.Game;
 

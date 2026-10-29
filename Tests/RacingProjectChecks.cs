@@ -1,6 +1,6 @@
-using System.Net.Http.Json;
+using WolfSlop.Engine.Assets;
 using System.Numerics;
-using WolfNET.Engine.Graphics;
+using WolfSlop.Engine.Graphics;
 using Racing = RaceImperialis.Game;
 using RacingAudio = RaceImperialis.Audio;
 
@@ -10,16 +10,16 @@ internal static class RacingProjectChecks
     {
         var count = 0;
         void Check(bool value, string message) { count++; if (!value) throw new Exception(message); }
-        var webRoot = Path.Combine(root, "RaceImperialis", "wwwroot");
-        using var http = new HttpClient(new FileHandler(webRoot)) { BaseAddress = new Uri("https://racing.local/") };
-        var graphics = (await http.GetFromJsonAsync<RendererSettings>("graphics-settings.json"))!;
-        var gameplay = (await http.GetFromJsonAsync<Racing.GameplaySettings>("gameplay-settings.json"))!;
-        var sound = (await http.GetFromJsonAsync<RacingAudio.SoundSettings>("audio-settings.json"))!;
+        var contentRoot = Path.Combine(root, "RaceImperialis", "Content");
+        var source = new DirectoryAssetSource(contentRoot);
+        var graphics = (await source.ReadJsonAsync<RendererSettings>("graphics-settings.json"))!;
+        var gameplay = (await source.ReadJsonAsync<Racing.GameplaySettings>("gameplay-settings.json"))!;
+        var sound = (await source.ReadJsonAsync<RacingAudio.SoundSettings>("audio-settings.json"))!;
         graphics.Validate(); gameplay.Validate(); sound.Validate();
-        var loader = new Racing.GameSceneLoader(http, graphics, gameplay);
+        var loader = new Racing.GameSceneLoader(source, graphics, gameplay);
         var loaded = await loader.LoadAsync(Racing.Wolf.DefaultMapPath);
         Check(loaded.Map.Spawn.Controller == "car", "Standalone racing did not load a driving spawn.");
-        Check(!typeof(Racing.GameScene).Assembly.GetReferencedAssemblies().Any(a => a.Name == "WolfNET.Examples"),
+        Check(!typeof(Racing.GameScene).Assembly.GetReferencedAssemblies().Any(a => a.Name == "WolfSlop.Examples"),
             "Standalone racing depends on the Examples assembly.");
         var textures = loaded.Character.AddTextures(loaded.Map.RendererMap.Textures);
         var assets = textures.Layers.Values
@@ -27,7 +27,7 @@ internal static class RacingProjectChecks
             .Concat(sound.Sfx.Clips.Values.SelectMany(paths => paths))
             .Concat(["textures/race/cockpit.png", "textures/race/steering-wheel.png"]);
         foreach (var asset in assets.OfType<string>().Distinct())
-            Check(File.Exists(Path.Combine(webRoot, asset)), $"Standalone racing is missing its own asset: {asset}");
+            Check(File.Exists(Path.Combine(contentRoot, asset)), $"Standalone racing is missing its own asset: {asset}");
 
         foreach (var difficulty in Enum.GetValues<Racing.RaceDifficulty>())
         {

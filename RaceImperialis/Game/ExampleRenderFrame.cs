@@ -1,6 +1,6 @@
 using System.Numerics;
-using WolfNET.Engine.World;
-using WolfNET.Engine.Graphics;
+using WolfSlop.Engine.World;
+using WolfSlop.Engine.Graphics;
 
 namespace RaceImperialis.Game;
 

@@ -1,13 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using Microsoft.JSInterop;
-using WolfNET.Engine.Graphics;
+
+using WolfSlop.Engine.Graphics;
 
 namespace RaceImperialis.Game;
 
-public sealed class GraphicsPreferences(IJSRuntime js, RendererSettings settings)
+public sealed class GraphicsPreferences(RendererSettings settings, string path)
 {
-    private const string StorageKey = "race-imperialis.graphics.v1";
     private readonly RendererSettings _defaults = GraphicsOptions.From(settings).ToRendererSettings(settings);
     public GraphicsOptions Defaults => GraphicsOptions.From(_defaults);
 
@@ -15,17 +14,22 @@ public sealed class GraphicsPreferences(IJSRuntime js, RendererSettings settings
     {
         try
         {
-            var json = await js.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            var json = File.Exists(path) ? await File.ReadAllTextAsync(path) : null;
             if (json == null) return;
             var saved = JsonSerializer.Deserialize<GraphicsOptions>(json, JsonSerializerOptions.Web);
             if (saved != null) settings.Apply(saved.ToRendererSettings(settings));
         }
-        catch (Exception ex) when (ex is JSException or JsonException or ValidationException or ArgumentException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ValidationException or ArgumentException)
         {
             Console.WriteLine("[GRAPHICS] Saved preferences unavailable; using graphics-settings.json.");
         }
     }
 
-    public async Task SaveAsync() => await js.InvokeVoidAsync("localStorage.setItem", StorageKey,
-        JsonSerializer.Serialize(GraphicsOptions.From(settings), JsonSerializerOptions.Web));
+    public async Task SaveAsync()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        var temporary = path + ".tmp";
+        await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(GraphicsOptions.From(settings), JsonSerializerOptions.Web));
+        File.Move(temporary, path, overwrite: true);
+    }
 }

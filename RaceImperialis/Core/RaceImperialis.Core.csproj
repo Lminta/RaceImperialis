@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Game/**/*.cs" Link="Game/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Audio/**/*.cs" Link="Audio/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../GlobalUsings.cs" Link="GlobalUsings.cs" />
+    <Compile Include="../NativeGame.cs" Link="NativeGame.cs" />
+    <ProjectReference Include="../../Engine/WolfSlop.Engine.Sdl/WolfSlop.Engine.Sdl.csproj" />
+  </ItemGroup>
+</Project>

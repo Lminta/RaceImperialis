@@ -7,7 +7,7 @@ public static class RaceMinimapProjection
     public const float ViewWidth = 120;
     public static readonly Vector2 PlayerAnchor = new(50, 70);
 
-    // Project world coordinates into a 100-square SVG viewport. Screen-right
+    // Project world coordinates into a 100-square drawing viewport. Screen-right
     // follows the game's camera plane, including its horizontal handedness.
     public static Matrix3x2 Create(Vector2 position, Vector2 direction)
     {

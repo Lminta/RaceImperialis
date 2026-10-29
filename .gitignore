@@ -1,6 +1,6 @@
 
 # ==========================================
-# WolfNET - .NET / Blazor WASM / Rider
+# Race Imperialis - .NET / SDL / Rider
 # ==========================================
 
 # .NET build outputs
@@ -39,12 +39,6 @@ _ReSharper*/
 *.suo
 *.userosscache
 *.sln.docstates
-
-# Blazor / WebAssembly generated output
-wwwroot/_framework/
-wwwroot/_content/
-service-worker-assets.js
-blazor.boot.json
 
 # NuGet
 *.nupkg

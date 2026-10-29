@@ -1,6 +1,6 @@
-using WolfNET.Engine.Core;
-using WolfNET.Engine.Input;
-using WolfNET.Engine.Actors.Components;
+using WolfSlop.Engine.Core;
+using WolfSlop.Engine.Input;
+using WolfSlop.Engine.Actors.Components;
 
 namespace RaceImperialis.Game.Player;
 
